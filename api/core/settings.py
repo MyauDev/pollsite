@@ -10,7 +10,7 @@ env = environ.Env(
 
 environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 
-SECRET_KEY = env('DJANGO_SECRET_KEY', default='dev-secret-change')
+SECRET_KEY = env('DJANGO_SECRET_KEY', default='dev-secret-key')
 DEBUG = env.bool('DJANGO_DEBUG', default=False)
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'polls',
 ]
 
 MIDDLEWARE = [
