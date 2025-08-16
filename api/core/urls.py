@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.http import JsonResponse
-from django.urls import path
+from django.urls import path, include
 
 def healthz(_):
     return JsonResponse({'status': 'ok'})
@@ -8,4 +8,6 @@ def healthz(_):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('healthz', healthz),
+    path('api/', include('polls.urls')),        # feed/detail/CRUD
+    path('api/auth/', include('polls.auth_urls')),
 ]
