@@ -6,3 +6,4 @@ uvicorn==0.30.3
 gunicorn==22.0.0
 djangorestframework-simplejwt==5.3.1
 PyJWT==2.8.0
+redis==5.0.7
