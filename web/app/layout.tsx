@@ -30,6 +30,13 @@ return (
 <html lang="ru">
 <body className="min-h-dvh bg-black text-white">
 <div className="mx-auto max-w-md px-2 sm:px-0">{children}</div>
+<div className="p-3 flex items-center justify-between text-sm text-zinc-400">
+  <a href="/">Лента</a>
+  <div className="space-x-4">
+    <a href="/auth">Войти</a>
+    <a href="/create" className="underline">Создать опрос</a>
+  </div>
+</div>
 </body>
 </html>
 );
