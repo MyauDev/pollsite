@@ -8,12 +8,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(
     DJANGO_DEBUG=(bool, False)
 )
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost")
 
 environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 
 SECRET_KEY = env('DJANGO_SECRET_KEY', default='dev-secret-key')
 DEBUG = env.bool('DJANGO_DEBUG', default=False)
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "api", "nginx"]
 
 import os
 

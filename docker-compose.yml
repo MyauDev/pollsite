@@ -29,6 +29,8 @@ services:
       retries: 10
 
   api:
+    environment:
+    - FRONTEND_ORIGIN=http://localhost
     build:
       context: ./api
       dockerfile: Dockerfile
