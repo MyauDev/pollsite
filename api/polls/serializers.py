@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Poll, PollOption, PollStats, ResultsMode
+from .models import Poll, PollOption, PollStats, ResultsMode, Vote
 from django.utils import timezone
+from .utils import sha256_hex
 
 class PollOptionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,12 +19,13 @@ class PollBaseSerializer(serializers.ModelSerializer):
     options = PollOptionSerializer(many=True, read_only=True)
     stats = PollStatsSerializer(read_only=True)
     results_available = serializers.SerializerMethodField()
+    user_vote = serializers.SerializerMethodField()
 
     class Meta:
         model = Poll
         fields = (
             'id', 'title', 'description', 'type_multi', 'results_mode', 'visibility', 'media_url',
-            'closes_at', 'created_at', 'updated_at', 'options', 'stats', 'results_available'
+            'closes_at', 'created_at', 'updated_at', 'options', 'stats', 'results_available', 'user_vote'
         )
 
     def get_results_available(self, obj: Poll) -> bool:
@@ -32,8 +34,31 @@ class PollBaseSerializer(serializers.ModelSerializer):
             return True
         if obj.results_mode == ResultsMode.HIDDEN_UNTIL_CLOSE:
             return bool(obj.closes_at and timezone.now() >= obj.closes_at)
-        # hidden_until_vote → ляжет на фронт, пока нет идентификации голоса
+        # hidden_until_vote → показываем результаты если пользователь уже голосовал
+        if obj.results_mode == ResultsMode.HIDDEN_UNTIL_VOTE:
+            return self.get_user_vote(obj) is not None
         return False
+
+    def get_user_vote(self, obj: Poll):
+        """Возвращает ID опции, за которую проголосовал пользователь, или None"""
+        request = self.context.get('request')
+        if not request:
+            return None
+        
+        device_id = request.headers.get('X-Device-Id')
+        if not device_id:
+            return None
+        
+        device_hash = sha256_hex(device_id)
+        
+        try:
+            vote = Vote.objects.filter(
+                poll=obj,
+                device_hash=device_hash
+            ).first()
+            return vote.option.id if vote else None
+        except:
+            return None
 
 
 class PollDetailSerializer(PollBaseSerializer):

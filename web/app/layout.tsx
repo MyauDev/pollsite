@@ -1,7 +1,18 @@
+import React from 'react';
 import type { Metadata } from 'next';
+import './globals.css';
 
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost';
+// Robust URL handling to prevent runtime crashes
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost';
+let siteUrl: string;
+try {
+  siteUrl = new URL(rawSiteUrl).href;
+} catch {
+  // If URL is malformed, try to fix it by adding protocol
+  siteUrl = new URL(
+    rawSiteUrl.startsWith('http') ? rawSiteUrl : `http://${rawSiteUrl}`
+  ).href;
+}
 
 
 export const metadata: Metadata = {
@@ -20,24 +31,18 @@ images: ['/og-default.png'],
 },
 twitter: {
 card: 'summary_large_image',
-site: '@',
+// Remove invalid '@' or use proper Twitter handle
+// site: '@YourTwitterHandle',
 },
 };
 
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-return (
-<html lang="ru">
-<body className="min-h-dvh bg-black text-white">
-<div className="mx-auto max-w-md px-2 sm:px-0">{children}</div>
-<div className="p-3 flex items-center justify-between text-sm text-zinc-400">
-  <a href="/">Лента</a>
-  <div className="space-x-4">
-    <a href="/auth">Войти</a>
-    <a href="/create" className="underline">Создать опрос</a>
-  </div>
-</div>
-</body>
-</html>
-);
+  return (
+    <html lang="ru" suppressHydrationWarning>
+      <body className="min-h-screen bg-gradient-to-br from-black via-zinc-900 to-black text-white">
+        <div className="mx-auto max-w-md px-2 sm:px-0">{children}</div>
+      </body>
+    </html>
+  );
 }
