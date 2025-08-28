@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CursorPage, Poll } from './types';
 import { fetchFeed } from './api';
+import { getOrCreateDeviceId } from './device';
 
 
 export function useInfiniteFeed() {
@@ -15,7 +16,8 @@ const load = useCallback(async () => {
 if (loading || done) return;
 setLoading(true);
 try {
-const page: CursorPage<Poll> = await fetchFeed(cursor ?? undefined);
+const deviceId = getOrCreateDeviceId();
+const page: CursorPage<Poll> = await fetchFeed(cursor ?? undefined, deviceId);
 setItems(prev => [...prev, ...page.results]);
 if (page.next) {
 const nextUrl = new URL(page.next);
