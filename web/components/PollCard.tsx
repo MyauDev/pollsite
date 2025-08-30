@@ -4,7 +4,17 @@ import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { vote } from '@/app/lib/api';
 import type { Poll } from '@/app/lib/types';
+import { useState } from 'react';
 
+
+async function followTopic(topicId: number, token?: string) {
+const res = await fetch(`/api/topics/${topicId}/follow`, { method: 'POST', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+if (!res.ok) throw new Error('follow failed');
+}
+async function followAuthor(authorId: number, token?: string) {
+const res = await fetch(`/api/authors/${authorId}/follow`, { method: 'POST', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+if (!res.ok) throw new Error('follow failed');
+}
 function shareUrl(pollId: number) {
   const base =
     (typeof window !== 'undefined'
@@ -90,7 +100,7 @@ export default function PollCard({ poll }: Props) {
         <h2 className="text-2xl font-semibold mt-1">{poll.title}</h2>
         {poll.description && <p className="text-zinc-300 mt-2">{poll.description}</p>}
       </div>
-
+  
       <div className="space-y-3 mt-6">
         {poll.options.map(opt => {
           const percent = percents[opt.id] ?? 0;
@@ -133,6 +143,17 @@ export default function PollCard({ poll }: Props) {
             </button>
           );
         })}
+      </div>
+      <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div>#{poll.id}</div>
+        <div className="space-x-2">
+          {poll.topics?.map((t: any) => (
+          <button key={t.id} onClick={() => followTopic(t.id)} className="underline">+ тема {t.name}</button>
+          ))}
+          {poll.author && (
+          <button onClick={() => followAuthor(poll.author.id)} className="underline">+ автор</button>
+          )}
+        </div>
       </div>
 
       {/* футер карточки с кнопкой "Поделиться" */}

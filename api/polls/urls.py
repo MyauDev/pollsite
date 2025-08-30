@@ -19,3 +19,11 @@ urlpatterns += [
 urlpatterns += [
     path('stream/polls/<int:pk>', PollStreamView.as_view(), name='poll-stream'),
 ]
+from .views_follow import TopicListView, FollowTopicView, FollowAuthorView
+
+
+urlpatterns += [
+path('topics', TopicListView.as_view(), name='topics-list'),
+path('topics/<int:topic_id>/follow', FollowTopicView.as_view(), name='topic-follow'),
+path('authors/<int:author_id>/follow', FollowAuthorView.as_view(), name='author-follow'),
+]
