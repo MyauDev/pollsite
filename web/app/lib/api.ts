@@ -1,6 +1,12 @@
-export async function fetchFeed(cursor?: string): Promise<import('./types').CursorPage<import('./types').Poll>> {
+export async function fetchFeed(cursor?: string, deviceId?: string): Promise<import('./types').CursorPage<import('./types').Poll>> {
     const url = cursor ? `/api/feed?cursor=${encodeURIComponent(cursor)}` : '/api/feed';
-    const res = await fetch(url, { cache: 'no-store' });
+    const headers: Record<string, string> = {};
+    if (deviceId) headers['X-Device-Id'] = deviceId;
+    
+    const res = await fetch(url, { 
+        cache: 'no-store',
+        headers 
+    });
     if (!res.ok) throw new Error('Failed to load feed');
     return res.json();
     }

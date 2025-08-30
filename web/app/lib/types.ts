@@ -19,6 +19,7 @@ options: PollOption[];
 stats?: PollStats | null;
 results_available: boolean;
 option_percents?: Record<string | number, number> | null;
+user_vote?: number | null; // ID of the option the user voted for
 };
 
 
