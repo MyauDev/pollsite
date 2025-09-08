@@ -45,6 +45,17 @@ class PollBaseSerializer(serializers.ModelSerializer):
         if not request:
             return None
         
+        # First check if user is authenticated and has voted
+        user = getattr(request, 'user', None)
+        if user and user.is_authenticated:
+            try:
+                vote = Vote.objects.filter(poll=obj, user=user).first()
+                if vote:
+                    return vote.option.id
+            except:
+                pass
+        
+        # Fallback to device-based voting for anonymous users
         device_id = request.headers.get('X-Device-Id')
         if not device_id:
             return None

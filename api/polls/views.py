@@ -22,11 +22,14 @@ from django.db.models.functions import (
 
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
+import logging
 
 from .models import Poll, VisibilityMode, PollTopic
 from .serializers import PollBaseSerializer, PollDetailSerializer
 from .pagination import FeedCursorPagination
 from .models_follow import FollowTopic, FollowAuthor
+
+logger = logging.getLogger(__name__)
 
 # веса ранжирования
 W_TREND = 0.6
@@ -46,6 +49,10 @@ class FeedView(ListAPIView):
             if getattr(self.request, "user", None) and self.request.user.is_authenticated
             else None
         )
+        
+        # Debug: Log authentication status
+        print(f"FeedView: user={user}, authenticated={getattr(self.request, 'user', None) and self.request.user.is_authenticated}")
+        print(f"FeedView: auth headers={dict(self.request.headers)}")
 
         # Base queryset: public polls only
         qs = (

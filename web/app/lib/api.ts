@@ -3,8 +3,21 @@ export async function fetchFeed(cursor?: string, deviceId?: string): Promise<imp
     const headers: Record<string, string> = {};
     if (deviceId) headers['X-Device-Id'] = deviceId;
     
+    // Add JWT token from client-side cookie if available
+    if (typeof document !== 'undefined') {
+        const jwtToken = document.cookie
+            .split(';')
+            .find(cookie => cookie.trim().startsWith('jwt_fallback='))
+            ?.split('=')[1];
+        
+        if (jwtToken) {
+            headers['Authorization'] = `Bearer ${jwtToken}`;
+        }
+    }
+    
     const res = await fetch(url, { 
         cache: 'no-store',
+        credentials: 'include', // Include cookies
         headers 
     });
     if (!res.ok) throw new Error('Failed to load feed');
