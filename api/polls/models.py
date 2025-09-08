@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 import secrets
+from .models_follow import FollowAuthor, FollowTopic
 
 User = settings.AUTH_USER_MODEL
 
