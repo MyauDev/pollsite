@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Poll, PollOption, Topic, PollTopic, ResultsMode, VisibilityMode
 from django.utils import timezone
-
+from .toxicity import has_toxic
 class PollOptionWriteSerializer(serializers.Serializer):
     text = serializers.CharField(max_length=140)
 
@@ -16,7 +16,9 @@ class PollWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Poll
-        fields = ('id','title','description','type_multi','results_mode','visibility','media_url','closes_at','tags','options','topic_ids')
+
+        fields = ('id','title','description','type_multi','results_mode','visibility','media_url','closes_at','tags','options','is_hidden','topic_ids')
+        read_only_fields = ()
 
     def validate(self, attrs):
         options = attrs.get('options') or []
@@ -44,6 +46,13 @@ class PollWriteSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'topic_ids': f'Несуществующие топики: {list(invalid_topics)}'})
         
         return attrs
+
+        if has_toxic(data.get('title','')) or has_toxic(data.get('description','')):
+            # мягкая модерация: создаём, но скрываем до ручной проверки
+            data['is_hidden'] = True
+
+        return data
+
 
     def create(self, validated_data):
         options = validated_data.pop('options')
