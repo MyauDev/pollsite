@@ -11,7 +11,7 @@ export default function VerifyClient() {
   const router = useRouter();
 
   const token = sp.get("token") ?? "";
-  const code  = sp.get("code")  ?? "";
+  const code = sp.get("code") ?? "";
   const [res, setRes] = useState<Result | null>(null);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function VerifyClient() {
       }
 
       try {
-        const r = await fetch("/frontend/auth/magic/verify", {
+        const r = await fetch("/api/auth/magic/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token, code }),

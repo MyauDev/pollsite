@@ -1,6 +1,7 @@
 from django.urls import path
 
-from .views_auth import RequestMagicLinkView, VerifyMagicLinkView, MeView
+
+from .views_auth import RequestMagicLinkView, VerifyMagicLinkView, MeView, RegisterView, LoginView
 from .views_password import (
     SignupView,
     LoginView,
@@ -16,6 +17,12 @@ urlpatterns = [
     # magic-link
     path('magic/request', RequestMagicLinkView.as_view(), name='auth-magic-request'),
     path('magic/verify', VerifyMagicLinkView.as_view(), name='auth-magic-verify'),
+    
+    # Email/password authentication
+    path('register', RegisterView.as_view(), name='auth-register'),
+    path('login', LoginView.as_view(), name='auth-login'),
+    
+    # User info
     path('me', MeView.as_view(), name='auth-me'),
 
     # парольная регистрация/логин
