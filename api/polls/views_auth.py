@@ -16,53 +16,42 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from .models_magic import MagicLinkToken
-
 from .models import Vote
 from .utils import sha256_hex
 from django.db import transaction
-from .auth_cookies import set_access_cookie, set_refresh_cookie  # ← add cookie helpers
+from .auth_cookies import set_access_cookie, set_refresh_cookie  # ← cookie helpers
 
 User = get_user_model()
-
 
 
 def migrate_device_votes_to_user(user, device_id=None):
     """
     Migrate votes from device-based identification to user account.
-    This should be called when a user logs in.
+    Call this after login if device_id is known (e.g., from header/cookie).
     """
     if not device_id:
-        return
-    
+        return 0
+
     device_hash = sha256_hex(device_id)
-    
     try:
         with transaction.atomic():
-            # Find votes by this device that don't have a user assigned
-            device_votes = Vote.objects.filter(
-                device_hash=device_hash,
-                user__isnull=True
-            )
-            
-            # Check for conflicts (user already voted on same polls)
-            conflicting_polls = []
-            for vote in device_votes:
-                if Vote.objects.filter(poll=vote.poll, user=user).exists():
-                    conflicting_polls.append(vote.poll_id)
-            
-            # Migrate non-conflicting votes
-            migrated_count = 0
-            for vote in device_votes:
-                if vote.poll_id not in conflicting_polls:
-                    vote.user = user
-                    vote.save()
-                    migrated_count += 1
-            
-            return migrated_count
+            device_votes = Vote.objects.filter(device_hash=device_hash, user__isnull=True)
+
+            # skip polls where the user already voted
+            existing = set(Vote.objects.filter(user=user).values_list('poll_id', flat=True))
+            migrated = 0
+            for v in device_votes:
+                if v.poll_id in existing:
+                    continue
+                v.user = user
+                v.save(update_fields=['user'])
+                migrated += 1
+            return migrated
     except Exception as e:
-        # Log error but don't fail login
+        # do not fail login on migration errors
         print(f"Error migrating device votes: {e}")
         return 0
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class RequestMagicLinkView(APIView):
@@ -76,7 +65,6 @@ class RequestMagicLinkView(APIView):
 
         mlt = MagicLinkToken.generate(email)
 
-        # Always build verify URL from FRONTEND_ORIGIN
         origin = getattr(settings, "FRONTEND_ORIGIN", "http://localhost")
         verify_url = f"{origin}/auth/verify?token={mlt.token}&code={mlt.code}"
 
@@ -118,7 +106,7 @@ class VerifyMagicLinkView(APIView):
         mlt.used_at = timezone.now()
         mlt.save(update_fields=['used_at'])
 
-        # Ensure user exists and has email set
+        # ensure user
         user, _ = User.objects.get_or_create(
             username=mlt.email.split('@')[0],
             defaults={'email': mlt.email}
@@ -127,10 +115,14 @@ class VerifyMagicLinkView(APIView):
             user.email = mlt.email
             user.save(update_fields=['email'])
 
-        # Session login (optional, if you also use Django sessions)
-        login(request, user)
+        # optional: merge device votes → read device id from header/cookie if есть
+        device_id = request.headers.get('X-Device-Id') or request.COOKIES.get('did')
+        try:
+            migrate_device_votes_to_user(user, device_id)
+        except Exception:
+            pass
 
-        # Issue JWT and set cookies instead of returning tokens in body
+        # issue JWT in httpOnly cookies
         refresh = RefreshToken.for_user(user)
         resp = Response({'user': {'id': user.id, 'email': user.email}})
         set_access_cookie(resp, str(refresh.access_token))

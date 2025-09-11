@@ -37,7 +37,6 @@ W_FRESH = 0.4
 W_INTEREST = 0.5
 
 
-
 class FeedView(ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = PollBaseSerializer
@@ -49,10 +48,6 @@ class FeedView(ListAPIView):
             if getattr(self.request, "user", None) and self.request.user.is_authenticated
             else None
         )
-        
-        # Debug: Log authentication status
-        print(f"FeedView: user={user}, authenticated={getattr(self.request, 'user', None) and self.request.user.is_authenticated}")
-        print(f"FeedView: auth headers={dict(self.request.headers)}")
 
         # Base queryset: public polls only
         qs = (
