@@ -10,19 +10,20 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 from django.shortcuts import redirect
 
-# 🔽 добавим эти импорты
+# CSRF off for these endpoints (magic-link usually called cross-origin)
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from .models_magic import MagicLinkToken
+from .auth_cookies import set_access_cookie, set_refresh_cookie  # ← add cookie helpers
 
 User = get_user_model()
 
 
-@method_decorator(csrf_exempt, name="dispatch")              # ⬅️ отключаем CSRF
+@method_decorator(csrf_exempt, name="dispatch")
 class RequestMagicLinkView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []                              # ⬅️ без SessionAuth → нет CSRF
+    authentication_classes = []  # no SessionAuth → no CSRF
 
     def post(self, request):
         email = (request.data.get('email') or '').strip().lower()
@@ -31,20 +32,23 @@ class RequestMagicLinkView(APIView):
 
         mlt = MagicLinkToken.generate(email)
 
-        # 🔁 всегда используем settings.FRONTEND_ORIGIN
+        # Always build verify URL from FRONTEND_ORIGIN
         origin = getattr(settings, "FRONTEND_ORIGIN", "http://localhost")
         verify_url = f"{origin}/auth/verify?token={mlt.token}&code={mlt.code}"
 
-        send_mail('Your sign-in link',
-                  f"Code: {mlt.code}\nLink: {verify_url}",
-                  None, [email])
+        send_mail(
+            'Your sign-in link',
+            f"Code: {mlt.code}\nLink: {verify_url}",
+            None,
+            [email],
+        )
         return Response({'ok': True})
 
 
-@method_decorator(csrf_exempt, name="dispatch")              # ⬅️ отключаем CSRF
+@method_decorator(csrf_exempt, name="dispatch")
 class VerifyMagicLinkView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []                              # ⬅️ без SessionAuth → нет CSRF
+    authentication_classes = []  # no SessionAuth → no CSRF
 
     def get(self, request):
         token = request.query_params.get("token", "")
@@ -70,7 +74,7 @@ class VerifyMagicLinkView(APIView):
         mlt.used_at = timezone.now()
         mlt.save(update_fields=['used_at'])
 
-        # Пользователь
+        # Ensure user exists and has email set
         user, _ = User.objects.get_or_create(
             username=mlt.email.split('@')[0],
             defaults={'email': mlt.email}
@@ -79,19 +83,20 @@ class VerifyMagicLinkView(APIView):
             user.email = mlt.email
             user.save(update_fields=['email'])
 
-        login(request, user)  # сессионный логин (кука вернётся клиенту через твой Next-прокси)
+        # Session login (optional, if you also use Django sessions)
+        login(request, user)
 
-        # JWT в JSON (как у тебя было)
+        # Issue JWT and set cookies instead of returning tokens in body
         refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {'id': user.id, 'email': user.email}
-        })
+        resp = Response({'user': {'id': user.id, 'email': user.email}})
+        set_access_cookie(resp, str(refresh.access_token))
+        set_refresh_cookie(resp, str(refresh))
+        return resp
 
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
         u = request.user
         return Response({'id': u.id, 'email': getattr(u, 'email', None)})

@@ -4,6 +4,25 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { vote } from '@/app/lib/api';
 import type { Poll } from '@/app/lib/types';
+import Comments from '@/components/Comments';
+
+/** Fire-and-forget analytics event sender (client-only) */
+async function sendEvent(
+  kind: 'view' | 'dwell' | 'vote' | 'share',
+  pollId: number,
+  dwellMs?: number
+) {
+  try {
+    await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, poll_id: pollId, dwell_ms: dwellMs || 0 }),
+      keepalive: kind === 'dwell', // helps on unload
+    });
+  } catch {
+    /* noop */
+  }
+}
 
 /** Narrow helper types for unknown fields coming from API */
 type Topic = { id: number; name: string };
@@ -64,6 +83,17 @@ export default function PollCard({ poll }: Props) {
   const [total, setTotal] = useState<number>(() => poll.stats?.total_votes ?? 0);
   const [chosen, setChosen] = useState<number | null>(() => poll.user_vote ?? null);
 
+  // --- Analytics: view + dwell tracking ---
+  useEffect(() => {
+    /** Start a dwell timer and send 'view' once when poll appears */
+    let start = performance.now();
+    sendEvent('view', poll.id);
+    return () => {
+      const dwell = Math.round(performance.now() - start);
+      sendEvent('dwell', poll.id, dwell);
+    };
+  }, [poll.id]);
+
   // Sync with incoming poll updates (e.g., when feed page appends/refreshes)
   useEffect(() => {
     const src = (poll.stats as any)?.counts ?? {};
@@ -89,7 +119,10 @@ export default function PollCard({ poll }: Props) {
 
   // Rules for when to show results
   const canShowResults =
-    poll.results_mode === 'open' || chosen !== null || !!poll.results_available || !!poll.user_vote;
+    poll.results_mode === 'open' ||
+    chosen !== null ||
+    !!poll.results_available ||
+    !!poll.user_vote;
 
   // Voting handler with optimistic update and server resync
   const onChoose = useCallback(
@@ -97,8 +130,8 @@ export default function PollCard({ poll }: Props) {
       if (chosen !== null) return; // single vote (MVP)
 
       setChosen(optId);
-      setCounts(prev => ({ ...prev, [optId]: (prev[optId] || 0) + 1 }));
-      setTotal(t => t + 1);
+      setCounts((prev) => ({ ...prev, [optId]: (prev[optId] || 0) + 1 }));
+      setTotal((t) => t + 1);
 
       try {
         const res = await vote(poll.id, optId);
@@ -108,6 +141,9 @@ export default function PollCard({ poll }: Props) {
         }
         setCounts(serverCounts);
         setTotal((res as any).total_votes || 0);
+
+        // --- Analytics: vote (only after backend confirms) ---
+        sendEvent('vote', poll.id);
       } catch (e) {
         // rollback to server state if failed
         const src = (poll.stats as any)?.counts ?? {};
@@ -145,7 +181,7 @@ export default function PollCard({ poll }: Props) {
       </div>
 
       <div className="space-y-3 mt-6">
-        {poll.options.map(opt => {
+        {poll.options.map((opt) => {
           const percent = percents[opt.id] ?? 0;
           const active = chosen === opt.id;
           return (
@@ -194,6 +230,7 @@ export default function PollCard({ poll }: Props) {
                   )}
                 </AnimatePresence>
               </div>
+              <Comments pollId={poll.id} />
               {canShowResults && (
                 <motion.div
                   initial={{ width: 0 }}
@@ -213,25 +250,34 @@ export default function PollCard({ poll }: Props) {
         <div>#{poll.id}</div>
         <div className="space-x-2">
           {hasTopics(poll) &&
-            poll.topics.map(t => (
-              <button
-                key={t.id}
-                onClick={() => followTopic(t.id)}
-                className="underline"
-              >
+            poll.topics.map((t) => (
+              <button key={t.id} onClick={() => followTopic(t.id)} className="underline">
                 + тема {t.name}
               </button>
             ))}
           {hasAuthor(poll) && (
-            <button
-              onClick={() => followAuthor(poll.author.id)}
-              className="underline"
-            >
+            <button onClick={() => followAuthor(poll.author.id)} className="underline">
               + автор
             </button>
           )}
         </div>
       </div>
+
+      <button
+        className="text-xs text-zinc-400 underline"
+        onClick={async () => {
+          const reason = prompt('Причина жалобы: spam/abuse/nsfw/illegal/other', 'abuse') || 'abuse';
+          const res = await fetch('/api/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_type: 'poll', target_id: poll.id, reason }),
+          });
+          if (res.ok) alert('Спасибо! Жалоба отправлена.');
+          else alert('Не удалось отправить жалобу.');
+        }}
+      >
+        Пожаловаться
+      </button>
 
       {/* Footer with "Share" button */}
       <div className="flex items-center justify-between text-xs text-zinc-400 mt-4">
@@ -245,9 +291,13 @@ export default function PollCard({ poll }: Props) {
             try {
               if (navigator.share) {
                 await navigator.share({ title, url });
+                // --- Analytics: share (native share succeeded) ---
+                sendEvent('share', poll.id);
               } else {
                 await navigator.clipboard.writeText(url);
                 alert('Ссылка скопирована');
+                // --- Analytics: share (clipboard fallback) ---
+                sendEvent('share', poll.id);
               }
             } catch {
               /* noop */
