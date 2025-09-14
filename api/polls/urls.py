@@ -8,7 +8,7 @@ from .views_follow import TopicListView, FollowTopicView, FollowAuthorView
 from .views_moderation import ReportCreateView, ReportListView, ModerationActionView
 from .views_analytics import CollectEventView
 from .views_author import AuthorDashboardView
-
+from .views_comments import PollCommentsListView, CommentCreateView, CommentHideView
 
 urlpatterns = [
     # Feed & Polls
@@ -45,4 +45,8 @@ urlpatterns = [
 
     # Author Dashboard
     path('author/dashboard', AuthorDashboardView.as_view(), name='author-dashboard'),
+
+    path('polls/<int:poll_id>/comments', PollCommentsListView.as_view(), name='poll-comments'),
+    path('comments', CommentCreateView.as_view(), name='comment-create'),
+    path('comments/<int:pk>/hide', CommentHideView.as_view(), name='comment-hide'),
 ]
