@@ -1,260 +1,252 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-interface Topic {
-  id: number;
-  name: string;
-  slug: string;
-}
+import { Suspense, useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import RequireAuth from "@/components/RequireAuth";
+import { fetchWithRefresh } from "@/app/lib/fetchWithRefresh";
+
+type ResultsMode = "open" | "hidden_until_vote" | "hidden_until_close";
+type Visibility = "public" | "link";
+
+type NewOption = { text: string };
 
 export default function CreatePollPage() {
+  return (
+    <Suspense fallback={<main className="mx-auto w-full max-w-md px-4 pb-10 pt-6">Проверяем доступ…</main>}>
+      <RequireAuth>
+        <CreatePollForm />
+      </RequireAuth>
+    </Suspense>
+  );
+}
+
+function CreatePollForm() {
   const router = useRouter();
-  const [question, setQuestion] = useState("");
-  const [options, setOptions] = useState<string[]>(["", ""]);
-  const [selectedTopics, setSelectedTopics] = useState<number[]>([]);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  // Fetch topics on component mount
-  useEffect(() => {
-    const fetchTopics = async () => {
-      try {
-        const res = await fetch("/api/topics", {
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTopics(data.results || data || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch topics:", error);
-      }
-    };
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [options, setOptions] = useState<NewOption[]>([{ text: "" }, { text: "" }]); // 2 минимально
+  const [typeMulti, setTypeMulti] = useState(false);
+  const [resultsMode, setResultsMode] = useState<ResultsMode>("open");
+  const [visibility, setVisibility] = useState<Visibility>("public");
 
-    fetchTopics();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canAddOption = options.length < 4;
+  const canRemoveOption = options.length > 2;
+
+  const titleTooLong = title.length > 240;
+
+  const trimmedOptions = useMemo(
+    () => options.map((o) => ({ text: o.text.trim() })),
+    [options]
+  );
+
+  const hasEmptyOption = trimmedOptions.some((o) => o.text.length === 0);
+
+  const isValid = !titleTooLong && !hasEmptyOption && trimmedOptions.length >= 2;
+
+  const updateOption = useCallback((idx: number, text: string) => {
+    setOptions((prev) => {
+      const next = prev.slice();
+      next[idx] = { text };
+      return next;
+    });
   }, []);
 
-  const addOption = () => {
-    if (options.length >= 4) return;
-    setOptions([...options, ""]);
-  };
+  const addOption = useCallback(() => {
+    if (!canAddOption) return;
+    setOptions((prev) => [...prev, { text: "" }]);
+  }, [canAddOption]);
 
-  const removeOption = (i: number) => {
-    if (options.length <= 2) return;
-    setOptions(options.filter((_, idx) => idx !== i));
-  };
+  const removeOption = useCallback((idx: number) => {
+    if (!canRemoveOption) return;
+    setOptions((prev) => prev.filter((_, i) => i !== idx));
+  }, [canRemoveOption]);
 
-  const toggleTopic = (topicId: number) => {
-    setSelectedTopics(prev =>
-      prev.includes(topicId)
-        ? prev.filter(id => id !== topicId)
-        : [...prev, topicId]
-    );
-  };
-
-  const submit = async (e: React.FormEvent) => {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr("");
-    setLoading(true);
+    setError(null);
 
-    const clean = options.map(s => s.trim()).filter(Boolean);
-    if (!question.trim() || clean.length < 2) {
-      setErr("Вопрос обязателен, нужно 2–4 варианта");
-      setLoading(false);
+    if (!isValid) {
+      setError("Проверьте поля формы: заголовок ≤ 240, минимум 2 не пустые опции.");
       return;
     }
 
+    setSubmitting(true);
     try {
+      // Бэкенду обычно нужны порядковые номера опций
       const payload = {
-        title: question.trim(),
-        options: clean.map(text => ({ text })),
-        topic_ids: selectedTopics,
-        results_mode: 'open',
-        visibility: 'public'
+        title: title.trim(),
+        description: description.trim() || undefined,
+        type_multi: typeMulti,
+        results_mode: resultsMode,
+        visibility,
+        options: trimmedOptions.map((o, i) => ({ text: o.text, order: i })),
       };
 
-      // Get JWT token from client-side cookie
-      const jwtToken = document.cookie
-        .split(';')
-        .find(cookie => cookie.trim().startsWith('jwt_fallback='))
-        ?.split('=')[1];
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json"
-      };
-
-      // Add Authorization header if JWT token is available
-      if (jwtToken) {
-        headers["Authorization"] = `Bearer ${jwtToken}`;
-      }
-
-      const res = await fetch("/api/polls", {
+      const res = await fetchWithRefresh("/api/polls", {
         method: "POST",
-        headers,
-        cache: "no-store",
-        credentials: "include", // Include cookies
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        setErr(text || "Не удалось создать опрос");
-        setLoading(false);
-        return;
+        const data = await res.json().catch(() => ({}));
+        const msg =
+          data?.detail || data?.error || (await res.text().catch(() => "")) || "Не удалось создать опрос";
+        throw new Error(typeof msg === "string" ? msg : "Не удалось создать опрос");
       }
 
-      const data = await res.json();
-      const id = data?.id || data?.pk || data?.poll_id;
-      if (!id) {
-        setErr("Сервер не вернул id опроса");
-        setLoading(false);
-        return;
-      }
-      router.replace(`/p/${id}`);
-    } catch {
-      setErr("Сеть недоступна или сервер вернул ошибку");
-      setLoading(false);
+      const created = await res.json();
+      const id = created?.id ?? created?.poll?.id;
+      if (!id) throw new Error("Сервер не вернул ID опроса.");
+
+      router.push(`/p/${id}`);
+      router.refresh();
+    } catch (e: any) {
+      setError(e?.message || "Ошибка сети. Попробуйте позже.");
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <div className="text-center py-8 px-4 relative">
-        {/* Background decoration */}
-        <div className="absolute inset-0 bg-gradient-to-b from-purple-500/10 via-transparent to-transparent rounded-3xl blur-3xl"></div>
+    <main className="mx-auto w-full max-w-md px-4 pb-10 pt-6">
+      <h1 className="text-xl font-semibold">Создать опрос</h1>
+      <p className="mt-1 text-sm opacity-80">
+        Минимум 2 и максимум 4 опции. Заголовок до 240 символов.
+      </p>
 
-        <div className="relative z-10">
-          <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-200 mb-4 transition-colors">
-            ← Назад к ленте
-          </Link>
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-500 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-4">
-            Создать опрос
-          </h1>
-          <p className="text-zinc-300 text-lg mb-2 font-medium">
-            Создай свой опрос
-          </p>
-          <p className="text-zinc-400 text-base max-w-sm mx-auto leading-relaxed">
-            Задай вопрос, добавь варианты ответов и выбери топики
-          </p>
+      <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+        <label className="grid gap-1">
+          <span className="text-sm opacity-90">Заголовок</span>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={300} // визуальный лимит чуть больше; валидируем на 240
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
+            placeholder="Вопрос к аудитории…"
+            aria-label="Заголовок"
+            required
+          />
+          <div className={`text-xs ${titleTooLong ? "text-red-300" : "opacity-60"}`}>
+            {title.length}/240
+          </div>
+        </label>
 
-          {/* Decorative elements */}
-          <div className="flex justify-center space-x-2 mt-6">
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-            <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-75"></div>
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-150"></div>
+        <label className="grid gap-1">
+          <span className="text-sm opacity-90">Описание (необязательно)</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
+            placeholder="Детали, ссылки и т.д."
+            aria-label="Описание"
+          />
+        </label>
+
+        <div className="grid gap-2">
+          <div className="text-sm opacity-90">Опции</div>
+          {options.map((opt, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={opt.text}
+                onChange={(e) => updateOption(idx, e.target.value)}
+                className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
+                placeholder={`Вариант ${idx + 1}`}
+                aria-label={`Опция ${idx + 1}`}
+              />
+              <button
+                type="button"
+                onClick={() => removeOption(idx)}
+                disabled={!canRemoveOption}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                title="Удалить опцию"
+              >
+                −
+              </button>
+            </div>
+          ))}
+
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={addOption}
+              disabled={!canAddOption}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+            >
+              Добавить опцию
+            </button>
+            <div className="text-xs opacity-60">{options.length}/4</div>
+          </div>
+
+          {hasEmptyOption && (
+            <div className="text-xs text-red-300">Опции не должны быть пустыми.</div>
+          )}
+        </div>
+
+        <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+          <label className="flex items-center justify-between gap-3">
+            <span className="text-sm opacity-90">Множественный выбор</span>
+            <input
+              type="checkbox"
+              checked={typeMulti}
+              onChange={(e) => setTypeMulti(e.target.checked)}
+              className="h-5 w-5 accent-emerald-400"
+            />
+          </label>
+
+          <div className="grid gap-1">
+            <span className="text-sm opacity-90">Видимость результатов</span>
+            <select
+              value={resultsMode}
+              onChange={(e) => setResultsMode(e.target.value as ResultsMode)}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
+              aria-label="Режим результатов"
+            >
+              <option value="open">Всегда видны</option>
+              <option value="hidden_until_vote">Скрыты до голосования</option>
+              <option value="hidden_until_close">Скрыты до закрытия</option>
+            </select>
+          </div>
+
+          <div className="grid gap-1">
+            <span className="text-sm opacity-90">Доступ</span>
+            <select
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as Visibility)}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
+              aria-label="Доступ"
+            >
+              <option value="public">Публичный</option>
+              <option value="link">По ссылке</option>
+            </select>
           </div>
         </div>
-      </div>
 
-      {/* Form */}
-      <div className="max-w-lg mx-auto px-4 pb-10">
-        <form onSubmit={submit} className="space-y-6">
-          {/* Question Input */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Вопрос
-            </label>
-            <input
-              className="w-full rounded-xl px-4 py-3 bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
-              placeholder="О чём ваш опрос?"
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              disabled={loading}
-            />
+        {error && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            {error}
           </div>
+        )}
 
-          {/* Options */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Варианты ответов
-            </label>
-            <div className="space-y-3">
-              {options.map((opt, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    className="flex-1 rounded-xl px-4 py-3 bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
-                    placeholder={`Вариант ${i + 1}`}
-                    value={opt}
-                    onChange={e => {
-                      const next = [...options];
-                      next[i] = e.target.value;
-                      setOptions(next);
-                    }}
-                    disabled={loading}
-                  />
-                  {options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(i)}
-                      className="btn btn-outline px-3 py-3 text-red-400 hover:text-red-300"
-                      disabled={loading}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-              {options.length < 4 && (
-                <button
-                  type="button"
-                  onClick={addOption}
-                  className="btn btn-outline w-full py-3"
-                  disabled={loading}
-                >
-                  + Добавить вариант
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Topics Selection */}
-          {topics.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-3">
-                Топики (необязательно)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {topics.map(topic => (
-                  <button
-                    key={topic.id}
-                    type="button"
-                    onClick={() => toggleTopic(topic.id)}
-                    className={`topic-chip ${selectedTopics.includes(topic.id) ? 'selected' : ''}`}
-                    disabled={loading}
-                  >
-                    {topic.name}
-                  </button>
-                ))}
-              </div>
-              {selectedTopics.length > 0 && (
-                <p className="text-sm text-zinc-400 mt-2">
-                  Выбрано: {selectedTopics.length} топик{selectedTopics.length > 1 ? 'а' : ''}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <button
-            className="btn btn-primary w-full py-4 text-lg font-semibold"
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? "Создаём..." : "✨ Создать опрос"}
-          </button>
-
-          {/* Error Message */}
-          {err && (
-            <div className="bg-red-900/20 border border-red-700 rounded-xl p-4">
-              <p className="text-red-400 text-sm">{err}</p>
-            </div>
-          )}
-        </form>
-      </div>
-    </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 disabled:opacity-60"
+        >
+          {submitting ? "Публикуем..." : "Опубликовать"}
+        </button>
+      </form>
+    </main>
   );
 }

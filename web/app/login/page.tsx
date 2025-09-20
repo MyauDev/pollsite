@@ -1,30 +1,124 @@
-'use client';
-import { useState } from 'react';
-import { saveTokens } from '@/app/lib/auth';
-import { useRouter } from 'next/navigation';
+"use client";
 
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [err, setErr] = useState('');
+/**
+ * Login page:
+ * - POST /api/auth/login with credentials: 'include'
+ * - On success redirect to ?redirect=... or '/'
+ * - No localStorage usage (server sets cookies)
+ */
+function LoginInner() {
   const router = useRouter();
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setErr('');
-    const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
-    if (!res.ok) { setErr('Неверный логин/пароль'); return; }
-    const data = await res.json(); saveTokens(data.access, data.refresh); router.push('/');
-  };
+  const search = useSearchParams();
+  const redirectTo = search.get("redirect") || "/";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        const detail =
+          (await res.json().catch(() => ({})))?.detail ||
+          (await res.text().catch(() => "")) ||
+          "Login failed";
+        setError(typeof detail === "string" ? detail : "Login failed");
+        return;
+      }
+
+      // Success: go to redirect target and refresh RSC tree to pick up cookies
+      router.push(redirectTo);
+      router.refresh();
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <main className="max-w-md mx-auto py-10 space-y-4">
-      <h1 className="text-2xl font-semibold">Войти</h1>
-      <form onSubmit={submit} className="space-y-3">
-        <input className="w-full rounded-xl px-4 py-3 bg-zinc-900 border border-zinc-700" type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} required />
-        <input className="w-full rounded-xl px-4 py-3 bg-zinc-900 border border-zinc-700" type="password" placeholder="Пароль" value={password} onChange={e=>setPassword(e.target.value)} required />
-        <button className="btn w-full" type="submit">Войти</button>
+    <main className="mx-auto w-full max-w-md px-4 pb-10 pt-6">
+      <h1 className="text-xl font-semibold">Вход</h1>
+      <p className="mt-1 text-sm opacity-80">
+        Войдите, чтобы голосовать и комментировать.
+      </p>
+
+      <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+        <label className="grid gap-1">
+          <span className="text-sm opacity-90">Email</span>
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
+            placeholder="you@example.com"
+            aria-label="Email"
+          />
+        </label>
+
+        <label className="grid gap-1">
+          <span className="text-sm opacity-90">Пароль</span>
+          <input
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
+            placeholder="••••••••"
+            aria-label="Пароль"
+            minLength={6}
+          />
+        </label>
+
+        {error ? (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 disabled:opacity-60"
+        >
+          {submitting ? "Входим..." : "Войти"}
+        </button>
       </form>
-      <a href="/password/reset" className="text-sm underline text-zinc-400">Забыли пароль?</a>
-      {err && <p className="text-red-400 text-sm">{err}</p>}
+
+      <div className="mt-4 text-sm opacity-90">
+        Нет аккаунта?{" "}
+        <Link href="/signup" className="underline hover:opacity-80">
+          Зарегистрируйтесь
+        </Link>
+      </div>
     </main>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="mx-auto w-full max-w-md px-4 pb-10 pt-6">Загрузка…</main>}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+

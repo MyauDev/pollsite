@@ -1,49 +1,29 @@
-import React from 'react';
-import type { Metadata } from 'next';
-import './globals.css';
-import Header from '../components/Header';
+import type { Metadata } from "next";
+import "./globals.css";
+import Header from "@/components/Header";
 
-// Robust URL handling to prevent runtime crashes
-const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost';
-let siteUrl: string;
-try {
-  siteUrl = new URL(rawSiteUrl).href;
-} catch {
-  // If URL is malformed, try to fix it by adding protocol
-  siteUrl = new URL(
-    rawSiteUrl.startsWith('http') ? rawSiteUrl : `http://${rawSiteUrl}`
-  ).href;
-}
-
-
+/**
+ * Root layout for the App Router.
+ * - Applies dark theme and mobile-first centered container.
+ * - Renders a persistent Header with auth-aware links.
+ */
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: 'Polls — TikTok‑лента опросов',
-    template: '%s · Polls',
-  },
-  description: 'Голосуй одним тапом и сразу смотри результат. Создавай свои опросы.',
-  openGraph: {
-    type: 'website',
-    url: siteUrl,
-    title: 'Polls — TikTok‑лента опросов',
-    description: 'Голосуй одним тапом и сразу смотри результат. Создавай свои опросы.',
-    images: ['/og-default.png'],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    // Remove invalid '@' or use proper Twitter handle
-    // site: '@YourTwitterHandle',
-  },
+  title: "PollSite",
+  description: "Lightweight polls with realtime updates",
 };
 
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <body className="min-h-screen bg-gradient-to-br from-black via-zinc-900 to-black text-white">
+    <html lang="ru" className="dark">
+      <body className="bg-gray-950 text-gray-100 antialiased">
         <Header />
-        <div className="mx-auto max-w-md px-2 sm:px-0">{children}</div>
+        <main className="mx-auto w-full max-w-md px-4 pb-10 pt-4">
+          {children}
+        </main>
       </body>
     </html>
   );

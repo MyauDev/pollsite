@@ -1,213 +1,150 @@
 "use client";
-import { useState, useEffect } from "react";
+
 import Link from "next/link";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+// If your alias differs, adjust the import path accordingly.
+import { fetchWithRefresh } from "@/app/lib/fetchWithRefresh";
 
-interface User {
-   id: number;
-   email: string;
-}
+/**
+ * Minimal shape for the session payload returned by /api/auth/session.
+ * Adjust as needed to match your backend.
+ */
+type SessionResponse =
+  | { authenticated: true; user: { id: number | string; email?: string; name?: string } }
+  | { authenticated: false }
+  | null;
 
+/**
+ * Header navigation with auth-aware links.
+ * - Always show: "Лента", "Создать"
+ * - If authenticated: "Выйти", "Кабинет"
+ * - Else: "Войти", "Регистрация"
+ * All requests use credentials: 'include'.
+ */
 export default function Header() {
-   const router = useRouter();
-   const [user, setUser] = useState<User | null>(null);
-   const [loading, setLoading] = useState(true);
-   const [showDropdown, setShowDropdown] = useState(false);
+  const router = useRouter();
+  const [session, setSession] = useState<SessionResponse>(null);
+  const isAuthed = !!(session && "authenticated" in session && session.authenticated);
 
-   // Check authentication status
-   useEffect(() => {
-      checkAuth();
-
-      // Listen for auth state changes (e.g., login/logout)
-      const handleAuthChange = () => {
-         checkAuth();
-      };
-
-      // Listen for storage events (when cookies change in other tabs)
-      window.addEventListener('storage', handleAuthChange);
-
-      // Listen for custom auth events
-      window.addEventListener('authStateChanged', handleAuthChange);
-
-      return () => {
-         window.removeEventListener('storage', handleAuthChange);
-         window.removeEventListener('authStateChanged', handleAuthChange);
-      };
-   }, []);
-
-   const checkAuth = async () => {
-      try {
-         // Get JWT token from client-side cookie
-         const jwtToken = document.cookie
-            .split(';')
-            .find(cookie => cookie.trim().startsWith('jwt_fallback='))
-            ?.split('=')[1];
-
-         if (!jwtToken) {
-            setLoading(false);
-            return;
-         }
-
-         const res = await fetch("/api/auth/me", {
-            headers: {
-               "Authorization": `Bearer ${jwtToken}`
-            },
-            credentials: "include"
-         });
-
-         if (res.ok) {
-            const data = await res.json();
-            setUser(data);
-         }
-      } catch (error) {
-         console.error("Auth check failed:", error);
-      } finally {
-         setLoading(false);
+  const loadSession = useCallback(async () => {
+    try {
+      // Use provided helper; ensure credentials are included.
+      const res = await fetchWithRefresh("/api/auth/session", {
+        method: "GET",
+        credentials: "include",
+        headers: { "Accept": "application/json" },
+      });
+      if (!res.ok) {
+        setSession({ authenticated: false });
+        return;
       }
-   };
-
-   const handleLogout = async () => {
-      try {
-         await fetch("/api/auth/logout", {
-            method: "POST",
-            credentials: "include"
-         });
-
-         // Clear client-side JWT cookie
-         document.cookie = "jwt_fallback=; Path=/; SameSite=Lax; Max-Age=0";
-
-         // Update state immediately
-         setUser(null);
-         setShowDropdown(false);
-
-         // Dispatch custom event to notify other components
-         window.dispatchEvent(new CustomEvent('authStateChanged'));
-
-         router.push("/");
-      } catch (error) {
-         console.error("Logout failed:", error);
-         // Even if logout API fails, clear local state
-         setUser(null);
-         setShowDropdown(false);
-         document.cookie = "jwt_fallback=; Path=/; SameSite=Lax; Max-Age=0";
-         window.dispatchEvent(new CustomEvent('authStateChanged'));
-         router.push("/");
+      const data = (await res.json()) as SessionResponse;
+      if (data && "authenticated" in data) {
+        setSession(data);
+      } else {
+        // Fallback if API returns user object directly
+        setSession(
+          (data as any)?.user
+            ? { authenticated: true, user: (data as any).user }
+            : { authenticated: false }
+        );
       }
-   };
+    } catch {
+      setSession({ authenticated: false });
+    }
+  }, []);
 
-   return (
-      <header className="bg-black/50 backdrop-blur-sm border-b border-zinc-800 sticky top-0 z-50">
-         <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-center justify-between h-16">
-               {/* Logo and Navigation */}
-               <div className="flex items-center space-x-6">
-                  <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-500 to-green-400 bg-clip-text text-transparent">
-                     PollSite
-                  </Link>
+  useEffect(() => {
+    // Load session on mount.
+    void loadSession();
+  }, [loadSession]);
 
-                  <nav className="hidden md:flex items-center space-x-4">
-                     <Link
-                        href="/"
-                        className="text-zinc-300 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-zinc-800"
-                     >
-                        🏠 Главная
-                     </Link>
-                     <Link
-                        href="/create"
-                        className="text-zinc-300 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-zinc-800"
-                     >
-                        ➕ Создать
-                     </Link>
-                  </nav>
-               </div>
+  const handleLogout = useCallback(async () => {
+    try {
+      const res = await fetchWithRefresh("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Accept": "application/json" },
+      });
+      // Regardless of status, refresh UI state.
+      if (!res.ok) {
+        // Optionally handle error toast here.
+      }
+    } catch {
+      // Optionally handle error toast here.
+    } finally {
+      await loadSession();
+      router.refresh();
+    }
+  }, [router, loadSession]);
 
-               {/* Account Section */}
-               <div className="flex items-center space-x-4">
-                  {loading ? (
-                     <div className="animate-pulse">
-                        <div className="w-8 h-8 bg-zinc-700 rounded-full"></div>
-                     </div>
-                  ) : user ? (
-                     /* Authenticated User */
-                     <div className="relative">
-                        <button
-                           onClick={() => setShowDropdown(!showDropdown)}
-                           className="flex items-center space-x-2 text-zinc-300 hover:text-white transition-colors p-2 rounded-lg hover:bg-zinc-800"
-                        >
-                           <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-400 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                              {user.email.charAt(0).toUpperCase()}
-                           </div>
-                           <span className="hidden sm:block text-sm">{user.email}</span>
-                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                           </svg>
-                        </button>
+  return (
+    <motion.header
+      initial={{ y: -12, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 260, damping: 22 }}
+      className="sticky top-0 z-40 w-full border-b border-white/10 bg-gray-950/80 backdrop-blur supports-[backdrop-filter]:bg-gray-950/60"
+    >
+      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-4 py-3">
+        <Link
+          href="/"
+          className="select-none text-lg font-semibold tracking-tight hover:opacity-90"
+        >
+          PollSite
+        </Link>
 
-                        {/* Dropdown Menu */}
-                        {showDropdown && (
-                           <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg">
-                              <Link
-                                 href="/account"
-                                 onClick={() => setShowDropdown(false)}
-                                 className="block px-4 py-3 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 border-b border-zinc-700"
-                              >
-                                 👤 Профиль
-                              </Link>
-                              <button
-                                 onClick={handleLogout}
-                                 className="w-full text-left px-4 py-3 text-sm text-red-400 hover:text-red-300 hover:bg-zinc-800"
-                              >
-                                 🚪 Выйти
-                              </button>
-                           </div>
-                        )}
-                     </div>
-                  ) : (
-                     /* Guest User */
-                     <div className="flex items-center space-x-3">
-                        <Link
-                           href="/signin"
-                           className="text-zinc-300 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-zinc-800"
-                        >
-                           Войти
-                        </Link>
-                        <Link
-                           href="/signup"
-                           className="bg-gradient-to-r from-blue-500 to-green-400 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium"
-                        >
-                           Регистрация
-                        </Link>
-                     </div>
-                  )}
-               </div>
-            </div>
+        <nav className="flex items-center gap-2 text-sm">
+          <Link
+            href="/"
+            className="rounded-xl px-3 py-2 hover:bg-white/5 transition"
+          >
+            Лента
+          </Link>
 
-            {/* Mobile Navigation */}
-            <div className="md:hidden pb-4">
-               <nav className="flex items-center space-x-4">
-                  <Link
-                     href="/"
-                     className="text-zinc-300 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-zinc-800"
-                  >
-                     🏠 Главная
-                  </Link>
-                  <Link
-                     href="/create"
-                     className="text-zinc-300 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-zinc-800"
-                  >
-                     ➕ Создать
-                  </Link>
-               </nav>
-            </div>
-         </div>
+          <Link
+            href="/create"
+            className="rounded-xl px-3 py-2 hover:bg-white/5 transition"
+          >
+            Создать
+          </Link>
 
-         {/* Click outside to close dropdown */}
-         {showDropdown && (
-            <div
-               className="fixed inset-0 z-40"
-               onClick={() => setShowDropdown(false)}
-            />
-         )}
-      </header>
-   );
+          {isAuthed ? (
+            <>
+              <Link
+                href="/author"
+                className="rounded-xl px-3 py-2 hover:bg-white/5 transition"
+              >
+                Кабинет
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-xl px-3 py-2 hover:bg-white/5 transition"
+                aria-label="Выйти"
+              >
+                Выйти
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-xl px-3 py-2 hover:bg-white/5 transition"
+              >
+                Войти
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-xl px-3 py-2 hover:bg-white/5 transition"
+              >
+                Регистрация
+              </Link>
+            </>
+          )}
+        </nav>
+      </div>
+    </motion.header>
+  );
 }
