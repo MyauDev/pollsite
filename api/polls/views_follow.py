@@ -12,6 +12,29 @@ class TopicListView(generics.ListAPIView):
     serializer_class = TopicSerializer
     queryset = Topic.objects.all().order_by('name')
 
+class TopicListCreateView(generics.ListCreateAPIView):
+    serializer_class = TopicSerializer
+    queryset = Topic.objects.all().order_by('name')
+    
+    def get_permissions(self):
+        """
+        GET requests allow any user, POST requests require authentication
+        """
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+    
+class TopicCreateView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = TopicSerializer
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
 
 class FollowTopicView(APIView):
     permission_classes = [permissions.IsAuthenticated]

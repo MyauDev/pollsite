@@ -4,7 +4,7 @@ from .views import FeedView, PollDetailView
 from .views_crud import PollCreateView, PollUpdateView, PollDeleteView
 from .views_vote import VoteView
 from .views_stream import PollStreamView
-from .views_follow import TopicListView, FollowTopicView, FollowAuthorView
+from .views_follow import TopicListView, TopicCreateView, TopicListCreateView, FollowTopicView, FollowAuthorView
 from .views_moderation import ReportCreateView, ReportListView, ModerationActionView
 from .views_analytics import CollectEventView
 from .views_author import AuthorDashboardView
@@ -26,9 +26,11 @@ urlpatterns = [
     # Streaming
     path('stream/polls/<int:pk>', PollStreamView.as_view(), name='poll-stream'),
 
-    # Topics & Authors
-    path('topics', TopicListView.as_view(), name='topics-list'),
+    # Topics
+    path('topics', TopicListCreateView.as_view(), name='topics-list-create'), # GET & POST
     path('topics/<int:topic_id>/follow', FollowTopicView.as_view(), name='topic-follow'),
+    
+    #Authors
     path('authors/<int:author_id>/follow', FollowAuthorView.as_view(), name='author-follow'),
 
     # Moderation

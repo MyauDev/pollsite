@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import { fetchWithRefresh } from "@/app/lib/fetchWithRefresh";
@@ -9,6 +9,7 @@ type ResultsMode = "open" | "hidden_until_vote" | "hidden_until_close";
 type Visibility = "public" | "link";
 
 type NewOption = { text: string };
+type Topic = { id: number; name: string; slug: string };
 
 export default function CreatePollPage() {
   return (
@@ -29,9 +30,17 @@ function CreatePollForm() {
   const [typeMulti, setTypeMulti] = useState(false);
   const [resultsMode, setResultsMode] = useState<ResultsMode>("open");
   const [visibility, setVisibility] = useState<Visibility>("public");
+  const [selectedTopics, setSelectedTopics] = useState<number[]>([]);
 
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Topic creation state
+  const [showTopicForm, setShowTopicForm] = useState(false);
+  const [newTopicName, setNewTopicName] = useState("");
+  const [creatingTopic, setCreatingTopic] = useState(false);
 
   const canAddOption = options.length < 4;
   const canRemoveOption = options.length > 2;
@@ -65,6 +74,75 @@ function CreatePollForm() {
     setOptions((prev) => prev.filter((_, i) => i !== idx));
   }, [canRemoveOption]);
 
+  const toggleTopic = useCallback((topicId: number) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topicId)
+        ? prev.filter(id => id !== topicId)
+        : [...prev, topicId]
+    );
+  }, []);
+
+  // Fetch topics function
+  const fetchTopics = useCallback(async () => {
+    try {
+      const res = await fetchWithRefresh("/api/topics", {
+        method: "GET",
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTopics(data.results || data || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch topics:", e);
+    } finally {
+      setTopicsLoading(false);
+    }
+  }, []);
+
+  // Create new topic function
+  const createTopic = useCallback(async () => {
+    if (!newTopicName.trim()) return;
+
+    setCreatingTopic(true);
+    try {
+      const res = await fetchWithRefresh("/api/topics", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          name: newTopicName.trim(),
+          slug: newTopicName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+        }),
+      });
+
+      if (res.ok) {
+        const newTopic = await res.json();
+        setTopics(prev => [...prev, newTopic].sort((a, b) => a.name.localeCompare(b.name)));
+        setSelectedTopics(prev => [...prev, newTopic.id]);
+        setNewTopicName("");
+        setShowTopicForm(false);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.name?.[0] || "Failed to create topic");
+      }
+    } catch (e: any) {
+      alert(`Ошибка создания темы: ${e.message}`);
+    } finally {
+      setCreatingTopic(false);
+    }
+  }, [newTopicName]);
+
+  // Fetch topics on component mount
+  useEffect(() => {
+    fetchTopics();
+  }, [fetchTopics]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -84,6 +162,7 @@ function CreatePollForm() {
         results_mode: resultsMode,
         visibility,
         options: trimmedOptions.map((o, i) => ({ text: o.text, order: i })),
+        topic_ids: selectedTopics.length > 0 ? selectedTopics : undefined,
       };
 
       const res = await fetchWithRefresh("/api/polls", {
@@ -152,6 +231,88 @@ function CreatePollForm() {
             aria-label="Описание"
           />
         </label>
+
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm opacity-90">Темы (необязательно)</span>
+            <button
+              type="button"
+              onClick={() => setShowTopicForm(!showTopicForm)}
+              className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-xs hover:bg-white/15 transition-colors"
+            >
+              + Добавить тему
+            </button>
+          </div>
+
+          {showTopicForm && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 grid gap-2">
+              <input
+                type="text"
+                value={newTopicName}
+                onChange={(e) => setNewTopicName(e.target.value)}
+                placeholder="Название новой темы"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400/40"
+                maxLength={80}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    createTopic();
+                  } else if (e.key === 'Escape') {
+                    setShowTopicForm(false);
+                    setNewTopicName("");
+                  }
+                }}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={createTopic}
+                  disabled={!newTopicName.trim() || creatingTopic}
+                  className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 px-3 py-1 text-xs hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {creatingTopic ? "Создаём..." : "Создать"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTopicForm(false);
+                    setNewTopicName("");
+                  }}
+                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-1 text-xs hover:bg-white/15 transition-colors"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          )}
+
+          {topicsLoading ? (
+            <div className="text-xs opacity-60">Загружаем темы...</div>
+          ) : topics.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {topics.map((topic) => (
+                <button
+                  key={topic.id}
+                  type="button"
+                  onClick={() => toggleTopic(topic.id)}
+                  className={`rounded-full px-3 py-1 text-xs transition-colors ${selectedTopics.includes(topic.id)
+                    ? "bg-emerald-400/20 text-emerald-300 border border-emerald-400/40"
+                    : "bg-white/10 text-white/70 border border-white/20 hover:bg-white/15"
+                    }`}
+                >
+                  {topic.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs opacity-60">Нет доступных тем</div>
+          )}
+          {selectedTopics.length > 0 && (
+            <div className="text-xs opacity-60">
+              Выбрано тем: {selectedTopics.length}
+            </div>
+          )}
+        </div>
 
         <div className="grid gap-2">
           <div className="text-sm opacity-90">Опции</div>

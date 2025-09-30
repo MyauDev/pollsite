@@ -4,6 +4,7 @@ total_votes: number;
 option_counts: Record<string, number> | null;
 updated_at?: string;
 };
+export type Topic = { id: number; name: string; slug: string };
 export type Poll = {
 id: number;
 title: string;
@@ -16,6 +17,7 @@ closes_at?: string | null;
 created_at: string;
 updated_at: string;
 options: PollOption[];
+topics: Topic[];
 stats?: PollStats | null;
 results_available: boolean;
 option_percents?: Record<string | number, number> | null;

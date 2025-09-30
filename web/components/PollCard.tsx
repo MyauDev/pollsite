@@ -185,6 +185,20 @@ export default function PollCard({ poll }: { poll: Poll }) {
         <p className="mt-1 text-sm opacity-80">{poll.description}</p>
       ) : null}
 
+      {/* Topics */}
+      {poll.topics && poll.topics.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {poll.topics.map((topic) => (
+            <span
+              key={topic.id}
+              className="inline-block rounded-full bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 text-xs text-emerald-300"
+            >
+              {topic.name}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="mt-3 grid gap-2">
         {poll.options
           .slice()
@@ -238,8 +252,8 @@ export default function PollCard({ poll }: { poll: Poll }) {
           {showResults
             ? `${displayedTotal} голосов`
             : poll.results_mode === "hidden_until_close"
-            ? "Результаты будут после закрытия"
-            : "Результаты скрыты до голосования"}
+              ? "Результаты будут после закрытия"
+              : "Результаты скрыты до голосования"}
         </span>
 
         <button

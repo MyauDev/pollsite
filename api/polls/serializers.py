@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Poll, PollOption, PollStats, ResultsMode, Vote
+from .models import Poll, PollOption, PollStats, ResultsMode, Vote, Topic
 from django.utils import timezone
 from .utils import sha256_hex
 
@@ -15,9 +15,16 @@ class PollStatsSerializer(serializers.ModelSerializer):
         fields = ('total_votes', 'option_counts', 'updated_at')
 
 
+class TopicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Topic
+        fields = ('id', 'name', 'slug')
+
+
 class PollBaseSerializer(serializers.ModelSerializer):
     options = PollOptionSerializer(many=True, read_only=True)
     stats = PollStatsSerializer(read_only=True)
+    topics = serializers.SerializerMethodField()
     results_available = serializers.SerializerMethodField()
     user_vote = serializers.SerializerMethodField()
 
@@ -25,8 +32,21 @@ class PollBaseSerializer(serializers.ModelSerializer):
         model = Poll
         fields = (
             'id', 'title', 'description', 'type_multi', 'results_mode', 'visibility', 'media_url',
-            'closes_at', 'created_at', 'updated_at', 'options', 'stats', 'results_available', 'user_vote'
+            'closes_at', 'created_at', 'updated_at', 'options', 'stats', 'topics', 'results_available', 'user_vote'
         )
+
+    def get_topics(self, obj: Poll):
+        """Return topics associated with this poll"""
+        # Use prefetched data if available, otherwise query
+        if hasattr(obj, '_prefetched_objects_cache') and 'polltopic_set' in obj._prefetched_objects_cache:
+            topics = [pt.topic for pt in obj.polltopic_set.all()]
+            topics.sort(key=lambda t: t.name)
+        else:
+            from .models import PollTopic
+            topics = Topic.objects.filter(
+                id__in=PollTopic.objects.filter(poll=obj).values_list('topic_id', flat=True)
+            ).order_by('name')
+        return TopicSerializer(topics, many=True).data
 
     def get_results_available(self, obj: Poll) -> bool:
         # Для MVP: скрываем до закрытия, если так настроено. Логику "скрыть до голоса" подключим позже, когда появится has_voted.

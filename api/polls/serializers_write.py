@@ -111,7 +111,7 @@ class PollWriteSerializer(serializers.ModelSerializer):
         # связываем топики
         if topic_ids:
             PollTopic.objects.bulk_create([
-                PollTopic(poll=poll, topic_id=tid) for tid in topic_ids
+                PollTopic(poll=poll, topic_id=topic_id) for topic_id in topic_ids
             ])
 
         return poll
@@ -136,7 +136,7 @@ class PollWriteSerializer(serializers.ModelSerializer):
             PollTopic.objects.filter(poll=instance).delete()
             if topic_ids:
                 PollTopic.objects.bulk_create([
-                    PollTopic(poll=instance, topic_id=tid) for tid in topic_ids
+                    PollTopic(poll=instance, topic_id=topic_id) for topic_id in topic_ids
                 ])
 
         return instance

@@ -40,6 +40,7 @@ restart-all:
 
 # Django commands
 migrate:
+	docker compose exec api python manage.py makemigrations polls
 	docker compose exec api python manage.py migrate --noinput
 	
 createsuperuser:

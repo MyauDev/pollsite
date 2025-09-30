@@ -52,7 +52,7 @@ class FeedView(ListAPIView):
         # Base queryset: public polls only
         qs = (
             Poll.objects.select_related("stats")
-            .prefetch_related("options")
+            .prefetch_related("options", "polltopic_set__topic")
             .filter(visibility=VisibilityMode.PUBLIC)
             .annotate(total_votes=Coalesce(F("stats__total_votes"), Value(0)))
         )
@@ -124,4 +124,4 @@ class PollDetailView(RetrieveAPIView):
 
     def get_queryset(self):
         # Keep it simple here; feed-specific annotations are unnecessary
-        return Poll.objects.select_related("stats").prefetch_related("options")
+        return Poll.objects.select_related("stats").prefetch_related("options", "polltopic_set__topic")
