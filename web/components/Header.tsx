@@ -113,10 +113,10 @@ export default function Header() {
           {isAuthed ? (
             <>
               <Link
-                href="/author"
+                href="/profile"
                 className="rounded-xl px-3 py-2 hover:bg-white/5 transition"
               >
-                Кабинет
+                Профиль
               </Link>
               <button
                 type="button"

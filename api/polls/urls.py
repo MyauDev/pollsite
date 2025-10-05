@@ -9,6 +9,7 @@ from .views_moderation import ReportCreateView, ReportListView, ModerationAction
 from .views_analytics import CollectEventView
 from .views_author import AuthorDashboardView
 from .views_comments import PollCommentsListView, CommentCreateView, CommentHideView
+from .views_profile import ProfileView
 
 urlpatterns = [
     # Feed & Polls
@@ -51,4 +52,5 @@ urlpatterns = [
     path('polls/<int:poll_id>/comments', PollCommentsListView.as_view(), name='poll-comments'),
     path('comments', CommentCreateView.as_view(), name='comment-create'),
     path('comments/<int:pk>/hide', CommentHideView.as_view(), name='comment-hide'),
+    path('profile', ProfileView.as_view(), name='auth-profile'),
 ]

@@ -10,8 +10,7 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     CORS_ALLOW_ALL=(bool, False),
 )
-FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost")
-# You can also pass multiple origins via env var, comma-separated
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
 CORS_ALLOWED_ORIGINS_ENV = os.environ.get("CORS_ALLOWED_ORIGINS", "")
 
 environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
@@ -34,16 +33,11 @@ CELERY_BEAT_SCHEDULE = {
 
 # --- Logging ------------------------------------------------------------------
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
-    },
-    "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
-    },
+    "formatters": {"verbose": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "verbose"}},
     "root": {"handlers": ["console"], "level": LOG_LEVEL},
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
@@ -57,9 +51,9 @@ LOGGING = {
         "gunicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
-
 # --- Apps ---------------------------------------------------------------------
 INSTALLED_APPS = [
+    'polls',
     # Django
     'django.contrib.admin',
     'django.contrib.auth',
@@ -67,28 +61,49 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 
     # Third-party
     'rest_framework',
+    'rest_framework.authtoken',                 # dj-rest-auth не будет ругаться
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',  # refresh blacklist on logout/rotation
-    'corsheaders',  # CORS support
+    'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
 
-    # Local
-    'polls',
+    # Auth (social/JWT)
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+
+
 ]
+SITE_ID = 1
+
+# --- dj-rest-auth -------------------------------------------------------------
+DJ_REST_AUTH = {
+    "TOKEN_MODEL": None,  # мы используем JWT, а не DRF Token
+}
+
+# --- Custom user --------------------------------------------------------------
+AUTH_USER_MODEL = 'polls.User'  # <-- наш кастомный пользователь
 
 # --- Auth backends ------------------------------------------------------------
 AUTHENTICATION_BACKENDS = [
+    'polls.auth_backends.EmailOrUsernameModelBackend',  # вход по email ИЛИ username
     'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
 # --- Middleware ---------------------------------------------------------------
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', 
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'allauth.account.middleware.AccountMiddleware',  # требуется allauth
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -97,7 +112,6 @@ MIDDLEWARE = [
 
 # --- URLs / WSGI / ASGI -------------------------------------------------------
 ROOT_URLCONF = 'core.urls'
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -106,14 +120,13 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
-                'django.template.context_processors.request',
+                'django.template.context_processors.request',  # allauth требует это
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
         },
     },
 ]
-
 WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
@@ -121,7 +134,6 @@ ASGI_APPLICATION = 'core.asgi.application'
 DATABASES = {
     'default': env.db('DATABASE_URL', default="postgresql://polls:changeme@localhost:5432/polls")
 }
-
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
@@ -133,38 +145,36 @@ CACHES = {
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-
-    # Order matters: cookie auth first, then header-based JWT, then session
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'polls.auth_cookie.CookieJWTAuthentication',                  # our cookie-based JWT auth
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # fallback via Authorization header
+        'polls.auth_cookie.CookieJWTAuthentication',                  # наши куки-JWT
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # fallback по заголовку
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
+    # чтобы грузить аватарки/формы из Next.js:
+    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ),
 }
 
 # --- Simple JWT ---------------------------------------------------------------
 SIMPLE_JWT = {
-    # Short-lived access token for better security
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
-
-    # Enable refresh rotation and blacklist of old refresh tokens
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
-
     'AUTH_HEADER_TYPES': ('Bearer',),
-    # You can also set ALGORITHM, SIGNING_KEY, etc. if needed
 }
 
-# --- JWT cookies (used by CookieJWTAuthentication) ----------------------------
-# NOTE: In production, use HTTPS + Secure cookies. For cross-site frontends, set SameSite=None.
+# --- JWT cookies --------------------------------------------------------------
 JWT_ACCESS_COOKIE = 'access_token'
 JWT_REFRESH_COOKIE = 'refresh_token'
-JWT_COOKIE_SECURE = False        # PROD: True (HTTPS required)
-JWT_COOKIE_SAMESITE = 'Lax'      # PROD cross-domain: 'None' (requires Secure=True)
+JWT_COOKIE_SECURE = False        # PROD: True (HTTPS)
+JWT_COOKIE_SAMESITE = 'Lax'      # PROD cross-domain: 'None' (+ Secure=True)
 JWT_COOKIE_PATH = '/'
 
 # --- Password validation ------------------------------------------------------
@@ -181,38 +191,54 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# --- Static -------------------------------------------------------------------
+# --- Static / Media -----------------------------------------------------------
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# для аватарок и других файлов
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --- Email (dev -> console) ---------------------------------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'no-reply@polls.local'
+# Для Gmail в dev/prod можно переопределить в .env:
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# EMAIL_HOST = "smtp.gmail.com"
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get("SMTP_USER")
+# EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASS")
+# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # --- CORS / CSRF --------------------------------------------------------------
-# Build CORS_ALLOWED_ORIGINS from env; fallback to FRONTEND_ORIGIN single value
 _cors_list = [o.strip() for o in CORS_ALLOWED_ORIGINS_ENV.split(",") if o.strip()]
 if not _cors_list and FRONTEND_ORIGIN:
     _cors_list = [FRONTEND_ORIGIN]
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost",
-    "http://127.0.0.1",
-]
-# CORS_ALLOWED_ORIGINS = 
-# _cors_list
-# Optional: allow all in local dev if you prefer (overrides allowed origins)
-# CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL', default=False)
-
-# CSRF trusted origins should include your frontend(s)
-# Example: http://localhost:3000 or https://app.example.com
+CORS_ALLOWED_ORIGINS = _cors_list
 CSRF_TRUSTED_ORIGINS = [
     *(o if "://" in o else f"http://{o}" for o in _cors_list),
 ]
 
-# If you serve API under a subpath/domain and need custom cookie behavior, you can also tune:
-# SESSION_COOKIE_SAMESITE = 'Lax'   # PROD cross-domain: 'None' + SESSION_COOKIE_SECURE=True
-# SESSION_COOKIE_SECURE = False     # PROD: True
+# --- Allauth / dj-rest-auth ---------------------------------------------------
+# Требуем И username, И email при регистрации; логин возможен по любому из них
+ACCOUNT_AUTHENTICATION_METHOD = "username_email"
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_EMAIL_VERIFICATION = "optional"
+
+# совместимость с примерами dj-rest-auth
+REST_USE_JWT = True
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["openid", "email", "profile"],
+        "AUTH_PARAMS": {"prompt": "select_account"},
+    },
+}
+# --- Other settings -----------------------------------------------------------
