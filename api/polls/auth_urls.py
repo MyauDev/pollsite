@@ -1,5 +1,5 @@
 from django.urls import path
-
+from .views_social import GoogleCookieLogin
 
 from .views_auth import RequestMagicLinkView, VerifyMagicLinkView, MeView
 from .views_password import (
@@ -12,6 +12,7 @@ from .views_password import (
 )
 from .views_cookie_refresh import CookieRefreshView
 from .views_session import SessionView
+from .views_availability import CheckUsernameView, CheckEmailView
 
 urlpatterns = [
     # magic-link
@@ -33,4 +34,7 @@ urlpatterns = [
     path('refresh', CookieRefreshView.as_view(), name='auth-cookie-refresh'),
 
     path('session', SessionView.as_view(), name='auth-session'),
+    path('social/google', GoogleCookieLogin.as_view(), name='auth-social-google'),
+    path('check-username', CheckUsernameView.as_view(), name='auth-check-username'),
+    path('check-email', CheckEmailView.as_view(), name='auth-check-email'),
 ]

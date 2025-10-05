@@ -1,9 +1,11 @@
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth import get_user_model
 import secrets
 from datetime import timedelta
-User = get_user_model()
+from django.conf import settings
+from django.db import models
+
+User = settings.AUTH_USER_MODEL 
 
 class MagicLinkToken(models.Model):
     email = models.EmailField(db_index=True)

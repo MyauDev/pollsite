@@ -6,8 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 import secrets
 from .models_follow import FollowAuthor, FollowTopic
-
-User = settings.AUTH_USER_MODEL
+from .models_user import User
 
 
 class ResultsMode(models.TextChoices):

@@ -4,18 +4,12 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-/**
- * Login page:
- * - POST /api/auth/login with credentials: 'include'
- * - On success redirect to ?redirect=... or '/'
- * - No localStorage usage (server sets cookies)
- */
 function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
   const redirectTo = search.get("redirect") || "/";
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState(""); // ← раньше было email
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +24,7 @@ function LoginInner() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier, password }), // ← ключ изменился
       });
 
       if (!res.ok) {
@@ -42,7 +36,6 @@ function LoginInner() {
         return;
       }
 
-      // Success: go to redirect target and refresh RSC tree to pick up cookies
       router.push(redirectTo);
       router.refresh();
     } catch {
@@ -55,22 +48,20 @@ function LoginInner() {
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-10 pt-6">
       <h1 className="text-xl font-semibold">Вход</h1>
-      <p className="mt-1 text-sm opacity-80">
-        Войдите, чтобы голосовать и комментировать.
-      </p>
+      <p className="mt-1 text-sm opacity-80">Войдите, чтобы голосовать и комментировать.</p>
 
       <form onSubmit={onSubmit} className="mt-6 grid gap-4">
         <label className="grid gap-1">
-          <span className="text-sm opacity-90">Email</span>
+          <span className="text-sm opacity-90">Email или логин</span>
           <input
-            type="email"
+            type="text"
             required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400/40"
-            placeholder="you@example.com"
-            aria-label="Email"
+            placeholder="you@example.com или your_login"
+            aria-label="Email или логин"
           />
         </label>
 

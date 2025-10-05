@@ -50,7 +50,7 @@ class SignupView(APIView):
 
         # Issue tokens and set cookies (no tokens in body)
         refresh = RefreshToken.for_user(user)
-        resp = Response({'user': {'id': user.id, 'email': user.email}})
+        resp = Response({'user': {'id': user.id, 'email': user.email, 'username': user.username}})
         set_access_cookie(resp, str(refresh.access_token))
         set_refresh_cookie(resp, str(refresh))
         return resp
@@ -70,7 +70,7 @@ class LoginView(APIView):
 
         # Issue tokens and set cookies (no tokens in body)
         refresh = RefreshToken.for_user(user)
-        resp = Response({'user': {'id': user.id, 'email': user.email}})
+        resp = Response({'user': {'id': user.id, 'email': user.email, 'username': user.username}})
         set_access_cookie(resp, str(refresh.access_token))
         set_refresh_cookie(resp, str(refresh))
         return resp
@@ -157,4 +157,3 @@ class ResetPasswordConfirmView(APIView):
         user.set_password(new_password)
         user.save(update_fields=['password'])
         return Response({'ok': True})
-

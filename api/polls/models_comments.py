@@ -1,8 +1,10 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.conf import settings
+from django.db import models
 
-User = settings.AUTH_USER_MODEL
+User = settings.AUTH_USER_MODEL 
 
 class Comment(models.Model):
     class Status(models.TextChoices):
