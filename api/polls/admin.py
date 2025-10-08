@@ -1,4 +1,3 @@
-# polls/admin.py
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
@@ -7,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from .models import Poll, PollOption, Vote, PollStats, Topic, PollTopic
 
 User = get_user_model()
+
 
 # --- Register User first so PollAdmin.autocomplete_fields can reference it ---
 @admin.register(User)
@@ -24,6 +24,7 @@ class UserAdmin(DjangoUserAdmin):
     search_fields = ("username", "email", "first_name", "last_name")
     ordering = ("id",)
 
+
 # --- The rest of your admins ---
 class PollOptionInline(admin.TabularInline):
     model = PollOption
@@ -31,16 +32,29 @@ class PollOptionInline(admin.TabularInline):
     fields = ('order', 'text')
     ordering = ('order',)
 
+
 @admin.register(Poll)
 class PollAdmin(admin.ModelAdmin):
-    list_display = ('id', 'title', 'author', 'is_active', 'visibility', 'results_mode', 'created_at')
-    list_filter = ('visibility', 'results_mode', 'is_hidden', 'is_frozen', 'created_at')
+    list_display = (
+        'id', 'title', 'author', 'is_active',
+        'visibility', 'results_mode',
+        'under_review', 'reports_total',  # NEW
+        'is_hidden', 'is_frozen',
+        'created_at',
+    )
+    list_filter = (
+        'visibility', 'results_mode',
+        'under_review',  # NEW
+        'is_hidden', 'is_frozen',
+        'created_at',
+    )
     search_fields = ('title', 'author__username', 'author__email')
     inlines = [PollOptionInline]
     readonly_fields = ()
-    autocomplete_fields = ('author',)  # now valid because UserAdmin is registered
+    autocomplete_fields = ('author',)
     list_select_related = ('author',)
-    ordering = ('-created_at',)
+    ordering = ('-under_review', '-reports_total', '-created_at')  # NEW: review items bubble up
+
 
 @admin.register(PollOption)
 class PollOptionAdmin(admin.ModelAdmin):
@@ -49,6 +63,7 @@ class PollOptionAdmin(admin.ModelAdmin):
     search_fields = ('poll__title', 'text')
     list_select_related = ('poll',)
     ordering = ('poll', 'order')
+
 
 @admin.register(Vote)
 class VoteAdmin(admin.ModelAdmin):
@@ -59,6 +74,7 @@ class VoteAdmin(admin.ModelAdmin):
     raw_id_fields = ('poll', 'option', 'user')
     ordering = ('-created_at',)
 
+
 @admin.register(PollStats)
 class PollStatsAdmin(admin.ModelAdmin):
     list_display = ('poll', 'total_votes', 'views', 'unique_viewers', 'updated_at')
@@ -66,11 +82,13 @@ class PollStatsAdmin(admin.ModelAdmin):
     search_fields = ('poll__title',)
     ordering = ('-updated_at',)
 
+
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'slug')
     search_fields = ('name', 'slug')
     ordering = ('name',)
+
 
 @admin.register(PollTopic)
 class PollTopicAdmin(admin.ModelAdmin):
@@ -79,3 +97,4 @@ class PollTopicAdmin(admin.ModelAdmin):
     search_fields = ('poll__title', 'topic__name', 'topic__slug')
     raw_id_fields = ('poll', 'topic')
     list_select_related = ('poll', 'topic')
+
