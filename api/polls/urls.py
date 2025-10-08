@@ -5,7 +5,7 @@ from .views_crud import PollCreateView, PollUpdateView, PollDeleteView
 from .views_vote import VoteView
 from .views_stream import PollStreamView
 from .views_follow import TopicListView, TopicCreateView, TopicListCreateView, FollowTopicView, FollowAuthorView
-from .views_moderation import ReportCreateView, ReportListView, ModerationActionView
+from .views_moderation import ReportCreateView, ReportListView, ModerationActionView, ModerationQueueView
 from .views_analytics import CollectEventView
 from .views_author import AuthorDashboardView
 from .views_comments import PollCommentsListView, CommentCreateView, CommentHideView
@@ -37,11 +37,8 @@ urlpatterns = [
     # Moderation
     path('reports', ReportCreateView.as_view(), name='report-create'),  # POST (AllowAny)
     path('moderation/reports', ReportListView.as_view(), name='report-list'),  # GET (moderator)
-    path(
-        'moderation/polls/<int:poll_id>/action',
-        ModerationActionView.as_view(),
-        name='moderation-action'
-    ),  # POST (moderator)
+    path('moderation/polls/<int:poll_id>/action', ModerationActionView.as_view(), name='moderation-action'),  # POST (moderator)
+    path('moderation/queue', ModerationQueueView.as_view(), name='moderation-queue'),
 
     # Analytics
     path('events', CollectEventView.as_view(), name='events-collect'),

@@ -1,4 +1,3 @@
-// web/components/PollCard.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -47,6 +46,15 @@ function shouldShowResults(poll: Poll, hasVoted: boolean) {
   }
 }
 
+/** Reasons list must match backend Report.Reason choices */
+const REPORT_REASONS = [
+  { value: "spam", label: "Спам" },
+  { value: "abuse", label: "Оскорбления/абьюз" },
+  { value: "nsfw", label: "NSFW/18+" },
+  { value: "illegal", label: "Незаконное" },
+  { value: "other", label: "Другое" },
+];
+
 export default function PollCard({ poll }: { poll: Poll }) {
   const deviceId = getOrCreateDeviceId();
   const mountedAt = useRef<number>(Date.now());
@@ -84,6 +92,14 @@ export default function PollCard({ poll }: { poll: Poll }) {
   /** local optimistic selection (single-choice) */
   const [optimisticVote, setOptimisticVote] = useState<number | null>(null);
   const [isVoting, setIsVoting] = useState(false);
+
+  /** Report UI state */
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<string>("spam");
+  const [reportNote, setReportNote] = useState<string>("");
+  const [isReporting, setIsReporting] = useState(false);
+  const [reportDone, setReportDone] = useState<null | "ok" | "err">(null);
+  const [reportErrText, setReportErrText] = useState<string>("");
 
   /** apply SSE snapshots/updates */
   const onSSEUpdate = useCallback((u: PollUpdate) => {
@@ -178,6 +194,50 @@ export default function PollCard({ poll }: { poll: Poll }) {
     }
   }, [deviceId, poll.id, poll.title]);
 
+  /** report submit */
+  const submitReport = useCallback(async () => {
+    if (isReporting) return;
+    setIsReporting(true);
+    setReportDone(null);
+    setReportErrText("");
+
+    try {
+      // backend принимает поля: target_type, target_id, reason
+      const res = await fetchWithRefresh("/api/reports", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_type: "poll",
+          target_id: Number(poll.id),
+          reason: reportReason,
+          // note на бэке необязателен; если решите хранить — добавьте туда
+          // note: reportNote?.slice(0, 500),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg =
+          (data?.detail as string) ||
+          Object.values(data as Record<string, unknown>)[0]?.toString() ||
+          "Не удалось отправить жалобу";
+        throw new Error(msg);
+      }
+
+      setReportDone("ok");
+      // можно автозакрыть модал через таймер
+      setTimeout(() => {
+        setIsReportOpen(false);
+      }, 900);
+    } catch (e: any) {
+      setReportDone("err");
+      setReportErrText(e?.message || "Ошибка отправки");
+    } finally {
+      setIsReporting(false);
+    }
+  }, [isReporting, poll.id, reportReason]);
+
   return (
     <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
       <h2 className="text-base font-semibold leading-snug">{poll.title}</h2>
@@ -252,18 +312,108 @@ export default function PollCard({ poll }: { poll: Poll }) {
           {showResults
             ? `${displayedTotal} голосов`
             : poll.results_mode === "hidden_until_close"
-              ? "Результаты будут после закрытия"
-              : "Результаты скрыты до голосования"}
+            ? "Результаты будут после закрытия"
+            : "Результаты скрыты до голосования"}
         </span>
 
-        <button
-          type="button"
-          onClick={onShare}
-          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 hover:bg-white/10"
-        >
-          Поделиться
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsReportOpen(true)}
+            className="rounded-lg border border-red-400/30 bg-red-400/10 px-2 py-1 hover:bg-red-400/15"
+            aria-haspopup="dialog"
+            aria-expanded={isReportOpen}
+          >
+            Пожаловаться
+          </button>
+
+          <button
+            type="button"
+            onClick={onShare}
+            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 hover:bg-white/10"
+          >
+            Поделиться
+          </button>
+        </div>
       </div>
+
+      {/* Report modal */}
+      {isReportOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !isReporting && setIsReportOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-neutral-900 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold">Пожаловаться на опрос</h3>
+            <p className="mt-1 text-xs opacity-80">
+              Выберите причину. Репорты видит модерация.
+            </p>
+
+            <div className="mt-3 grid gap-2">
+              <label className="text-xs opacity-80">Причина</label>
+              <select
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm outline-none"
+              >
+                {REPORT_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+
+              {reportReason === "other" && (
+                <>
+                  <label className="mt-2 text-xs opacity-80">Комментарий (необязательно)</label>
+                  <textarea
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    className="w-full rounded-lg border border-white/10 bg-white/5 p-2 text-sm outline-none"
+                    placeholder="Кратко опишите проблему"
+                  />
+                </>
+              )}
+            </div>
+
+            {/* status line */}
+            <div className="mt-3 min-h-[1.25rem] text-xs">
+              {reportDone === "ok" && (
+                <span className="text-emerald-300">Спасибо! Жалоба отправлена.</span>
+              )}
+              {reportDone === "err" && (
+                <span className="text-red-300">Ошибка: {reportErrText}</span>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={isReporting}
+                onClick={() => setIsReportOpen(false)}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-60"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                disabled={isReporting}
+                onClick={submitReport}
+                className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-sm hover:bg-red-400/15 disabled:opacity-60"
+              >
+                {isReporting ? "Отправка..." : "Отправить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4">
         <Comments pollId={Number(poll.id)} />
