@@ -28,7 +28,7 @@ from polls.serializers import (
     ResetPasswordRequestSerializer,
     ResetPasswordConfirmSerializer,
 )
-from polls.auth_cookies import set_access_cookie, set_refresh_cookie, clear_auth_cookies
+from lib.auth.cookies import set_access_cookie, set_refresh_cookie, clear_auth_cookies
 
 User = get_user_model()
 
