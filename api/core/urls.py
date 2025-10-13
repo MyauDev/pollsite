@@ -8,6 +8,5 @@ def healthz(_):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('healthz', healthz),
-    path('api/', include('polls.urls')),        # feed/detail/CRUD
-    path('api/auth/', include('polls.auth_urls')),
+    path('api/', include('polls.urls')),
 ]
