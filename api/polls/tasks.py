@@ -1,18 +1,16 @@
 from celery import shared_task
 from django.db.models import Sum, Count, Avg
 from django.utils import timezone
-from .models_analytics import Event, PollAgg
+from polls.models import Event, PollAgg
 
 
 @shared_task(name='polls.tasks.aggregate_events')
 def aggregate_events():
-    # Берём последние N минут и агрегируем инкрементально
     from datetime import timedelta
     since = timezone.now() - timedelta(minutes=30)
     qs = Event.objects.filter(ts__gte=since)
     if not qs.exists():
         return 'no events'
-    # группируем по poll_id и kind вручную
     data = {}
     for e in qs.values('poll_id','kind').annotate(c=Count('id'), dwell_sum=Sum('dwell_ms')):
         key = e['poll_id']
@@ -20,7 +18,6 @@ def aggregate_events():
         rec[e['kind']] = e['c']
         if e['kind'] == 'dwell':
             rec['dwell_sum'] = e['dwell_sum'] or 0
-    # применяем к PollAgg
     for poll_id, rec in data.items():
         agg, _ = PollAgg.objects.get_or_create(poll_id=poll_id)
         agg.views += rec.get('view',0)
@@ -29,6 +26,5 @@ def aggregate_events():
         agg.dwell_ms_sum += rec.get('dwell_sum',0)
         agg.dwell_ms_avg = int((agg.dwell_ms_sum / max(agg.views,1)))
         agg.save()
-    # чистка старых событий опционально
     Event.objects.filter(ts__lt=since).delete()
     return f'aggregated {len(data)} polls'

@@ -9,8 +9,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 
 from .models import Poll, Vote
-from .pubsub import get_redis, CHANNEL_FMT
-from .renderers import EventStreamRenderer, IgnoreClientNegotiation
+from lib.redis.pubsub import get_redis, CHANNEL_FMT
+from lib.renderers.sse import EventStreamRenderer, IgnoreClientNegotiation
 
 logger = logging.getLogger("polls.stream")
 

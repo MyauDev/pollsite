@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import environ
 from datetime import timedelta
+from corsheaders.defaults import default_headers
 
 # --- Base paths & env ---------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,8 +22,9 @@ DEBUG = env.bool('DJANGO_DEBUG', default=False)
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "api", "nginx"]
 
 # --- Celery / Redis -----------------------------------------------------------
-CELERY_BROKER_URL = env('REDIS_URL')
-CELERY_RESULT_BACKEND = env('REDIS_URL')
+REDIS_URL = env('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_BEAT_SCHEDULE = {
     'aggregate-events-5min': {
@@ -84,15 +86,15 @@ SITE_ID = 1
 
 # --- dj-rest-auth -------------------------------------------------------------
 DJ_REST_AUTH = {
-    "TOKEN_MODEL": None,  # мы используем JWT, а не DRF Token
+    "TOKEN_MODEL": None,
 }
 
 # --- Custom user --------------------------------------------------------------
-AUTH_USER_MODEL = 'polls.User'  # <-- наш кастомный пользователь
+AUTH_USER_MODEL = 'polls.User'
 
 # --- Auth backends ------------------------------------------------------------
 AUTHENTICATION_BACKENDS = [
-    'polls.auth_backends.EmailOrUsernameModelBackend',  # вход по email ИЛИ username
+    'lib.auth.backends.EmailOrUsernameModelBackend',
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
@@ -103,7 +105,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # требуется allauth
+    'allauth.account.middleware.AccountMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -146,19 +148,19 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'polls.auth_cookie.CookieJWTAuthentication',                  # наши куки-JWT
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # fallback по заголовку
+        'lib.auth.cookies.CookieJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
-    # чтобы грузить аватарки/формы из Next.js:
     'DEFAULT_PARSER_CLASSES': (
         'rest_framework.parsers.JSONParser',
         'rest_framework.parsers.FormParser',
         'rest_framework.parsers.MultiPartParser',
     ),
+    'EXCEPTION_HANDLER': 'lib.http_helpers.exceptions.drf_exception_handler',
 }
 
 # --- Simple JWT ---------------------------------------------------------------
@@ -173,8 +175,8 @@ SIMPLE_JWT = {
 # --- JWT cookies --------------------------------------------------------------
 JWT_ACCESS_COOKIE = 'access_token'
 JWT_REFRESH_COOKIE = 'refresh_token'
-JWT_COOKIE_SECURE = False        # PROD: True (HTTPS)
-JWT_COOKIE_SAMESITE = 'Lax'      # PROD cross-domain: 'None' (+ Secure=True)
+JWT_COOKIE_SECURE = env.bool('JWT_COOKIE_SECURE', default=False)   # PROD: True
+JWT_COOKIE_SAMESITE = os.environ.get('JWT_COOKIE_SAMESITE', 'Lax') # PROD cross-site: 'None'
 JWT_COOKIE_PATH = '/'
 
 # --- Password validation ------------------------------------------------------
@@ -220,6 +222,10 @@ if not _cors_list and FRONTEND_ORIGIN:
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = _cors_list
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'X-Device-Id',
+    'Idempotency-Key',
+]
 CSRF_TRUSTED_ORIGINS = [
     *(o if "://" in o else f"http://{o}" for o in _cors_list),
 ]
