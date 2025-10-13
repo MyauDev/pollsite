@@ -12,6 +12,8 @@ from .report import Report
 from .profile import UserProfile
 from .magiclink import MagicLinkToken
 from .analytics import Event, PollAgg
+from .follow import FollowTopic, FollowAuthor
+from .comment import Comment
 
 __all__ = [
     "User",
@@ -28,4 +30,7 @@ __all__ = [
     "MagicLinkToken",
     "Event", 
     "PollAgg",
+    "FollowTopic",
+    "FollowAuthor",
+    "Comment",
 ]
