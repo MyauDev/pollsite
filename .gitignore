@@ -41,7 +41,6 @@ api/dist/
 api/downloads/
 api/eggs/
 api/.eggs/
-api/lib/
 api/lib64/
 api/parts/
 api/sdist/
