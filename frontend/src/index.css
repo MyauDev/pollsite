@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+  --color-pink: #F080B8;
+  --color-pink-light: #FFE6FE;
+  --color-pink-alpha: #F080B8CB;
+  --color-gray: #707070;
+  
+  --font-family-impact: Impact, "Arial Black", sans-serif;
+  --font-family-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* Icon styling with mask */
+.icon-button {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: #FFFFFF;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  transition: background-color 0.2s ease;
+}
+
+.icon-button:hover {
+  background-color: #F080B8;
+}
+
+.icon-heart {
+  mask-image: url('/heart.svg');
+}
+
+.icon-comment {
+  mask-image: url('/comment.svg');
+}
+
+.icon-paper-plane {
+  mask-image: url('/paper-plane.svg');
+}
