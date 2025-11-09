@@ -1,12 +1,32 @@
 import axios from "axios";
+import { getOrCreateDeviceId } from "../utils/device";
 
 const api = axios.create({
-  baseURL: "/api", // Vite proxy will forward to http://localhost:8000/api
-  withCredentials: true, // Django uses auth cookies for JWT
+  baseURL: "/api",
+  withCredentials: true, // Send cookies with requests
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+// Request interceptor to add device ID header
+api.interceptors.request.use(
+  (config) => {
+    // Add device ID to all requests
+    const deviceId = getOrCreateDeviceId();
+    config.headers['X-Device-Id'] = deviceId;
+    
+    // Log device ID for debugging
+    if (config.url?.includes('/polls')) {
+      console.log('API Request:', config.method?.toUpperCase(), config.url, 'Device-ID:', deviceId);
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Request interceptor for adding tokens if needed
 api.interceptors.request.use(

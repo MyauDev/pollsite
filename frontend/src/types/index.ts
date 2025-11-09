@@ -36,28 +36,54 @@ export interface ResetPasswordConfirm {
   new_password: string;
 }
 
+// Vote Response from backend
+export interface VoteResponse {
+  poll_id: number;
+  voted_option_id: number;
+  already_voted: boolean;
+  idempotent: boolean;
+  total_votes: number;
+  counts: Record<number, number>;
+  percents: Record<number, number>;
+}
+
+// Poll Stats from backend
+export interface PollStats {
+  total_votes: number;
+  option_counts: Record<string, number>;
+  updated_at: string;
+}
+
 // Poll Types
 export interface Poll {
   id: number;
   title: string;
   description?: string;
-  question: string;
+  type_multi: boolean;
+  results_mode: 'open' | 'hidden_until_vote' | 'hidden_until_close';
+  visibility: string;
+  media_url?: string;
+  closes_at?: string;
   created_at: string;
   updated_at: string;
-  expires_at?: string;
-  is_active: boolean;
-  author: User;
   options: PollOption[];
-  total_votes: number;
-  user_vote?: number; // option id user voted for
-  topic?: Topic;
+  stats?: PollStats;
+  topics?: Topic[];
+  results_available: boolean;
+  user_vote?: number; // option id user voted for (null if not voted)
+  author?: User;
 }
 
 export interface PollOption {
   id: number;
   text: string;
-  vote_count: number;
-  percentage: number;
+  order: number;
+}
+
+export interface Topic {
+  id: number;
+  name: string;
+  slug: string;
 }
 
 export interface CreatePollRequest {

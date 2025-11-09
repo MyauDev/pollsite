@@ -65,8 +65,8 @@ export const authAPI = {
 
 // ============ Poll Endpoints ============
 export const pollAPI = {
-  // List polls
-  list: (params?: { page?: number; topic?: string; search?: string }) =>
+  // List polls (supports both page and cursor pagination)
+  list: (params?: { page?: number; topic?: string; search?: string; cursor?: string }) =>
     api.get<PaginatedResponse<Poll>>("/polls/", { params }),
 
   // Get single poll
@@ -84,7 +84,7 @@ export const pollAPI = {
 
   // Vote on poll
   vote: (pollId: number, data: VoteRequest) =>
-    api.post<{ ok: boolean }>(`/polls/${pollId}/vote/`, data),
+    api.post<import("../types").VoteResponse>(`/polls/${pollId}/vote/`, data),
 
   // Get poll analytics
   analytics: (pollId: number) => api.get<PollAnalytics>(`/polls/${pollId}/analytics/`),
