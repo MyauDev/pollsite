@@ -33,10 +33,12 @@ services:
     container_name: polls_api
     env_file: .env
     environment:
-      - FRONTEND_ORIGIN=http://localhost
+      - FRONTEND_ORIGIN=http://localhost:3000
     working_dir: /app
     volumes:
       - ./api:/app
+    ports:
+      - "8000:8000"
     command:
       - sh
       - -lc
@@ -60,43 +62,40 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    container_name: polls_web
-    env_file: .env
-    command: ["node", "server.js"]
-    environment:
-      - PORT=3000
-      - INTERNAL_API_BASE_URL=http://api:8000
-    depends_on:
-      api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/ >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+  # Frontend service commented out - run locally with: cd frontend && npm run dev
+  # Uncomment this section only if you want to run frontend in Docker
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: polls_frontend
+  #   depends_on:
+  #     - api
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: polls_nginx
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      web:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # Nginx commented out - not needed when running frontend locally
+  # Uncomment this section only if you want to run frontend in Docker
+  # nginx:
+  #   image: nginx:1.27-alpine
+  #   container_name: polls_nginx
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     frontend:
+  #       condition: service_healthy
+  #     api:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -sf http://localhost/healthz || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   worker:
     build:

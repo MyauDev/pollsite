@@ -310,3 +310,84 @@ class PollViewSet(ModelViewSet):
         if set_cookie_device and device_id:
             resp.set_cookie(COOKIE_DEVICE_KEY, device_id, max_age=COOKIE_MAX_AGE, httponly=False, samesite="Lax")
         return resp
+
+    # ---------- Comments ----------
+
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        permission_classes=[AllowAny],
+        url_path="comments",
+    )
+    def comments(self, request, pk=None):
+        """List or create comments for a poll"""
+        if request.method == "GET":
+            return self._list_comments(request, pk)
+        elif request.method == "POST":
+            return self._create_comment(request, pk)
+
+    def _list_comments(self, request, poll_id):
+        """List comments for a poll"""
+        from polls.models import Comment
+        from polls.serializers import CommentReadSerializer
+        from lib.http_helpers.pagination import CommentsPagination
+        from django.db.models import Count
+
+        qs = (
+            Comment.objects.filter(poll_id=poll_id, status="visible")
+            .annotate(replies_count=Count("replies"))
+        )
+        parent_id = request.query_params.get("parent")
+        if parent_id:
+            qs = qs.filter(parent_id=parent_id)
+        else:
+            qs = qs.filter(parent__isnull=True)
+        qs = qs.order_by("-id")
+
+        paginator = CommentsPagination()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        serializer = CommentReadSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+    def _create_comment(self, request, poll_id):
+        """Create a comment for a poll"""
+        from polls.models import Comment
+        from polls.serializers import CommentWriteSerializer, CommentReadSerializer
+        from lib.redis.pubsub import publish_event
+
+        serializer = CommentWriteSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        device_id = request.headers.get("X-Device-Id") or request.COOKIES.get("did") or ""
+        device_hash = sha256_hex(device_id)
+        ip = get_client_ip(request)
+        ip_hash = sha256_hex(ip) if ip else None
+
+        # Rate limiting
+        if ip_hash and not self._rate_limit(f"ip:{ip_hash}", 30):
+            return Response({"detail": "Too Many Requests"}, status=http.HTTP_429_TOO_MANY_REQUESTS)
+        if device_hash and not self._rate_limit(f"dev:{device_hash}", 30):
+            return Response({"detail": "Too Many Requests"}, status=http.HTTP_429_TOO_MANY_REQUESTS)
+
+        # Handle soft-moderation flag from serializer.validate_content
+        force_hidden = bool(serializer.context.get("force_hidden")) if isinstance(serializer.context, dict) else False
+
+        comment = serializer.save(
+            poll_id=poll_id,
+            author=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+            ip_hash=ip_hash or None,
+            device_hash=device_hash or None,
+            status="hidden" if force_hidden else "visible",
+        )
+
+        read_serializer = CommentReadSerializer(comment, context={"request": request})
+        data = read_serializer.data
+
+        try:
+            if data.get("status") == "visible":
+                publish_event(comment.poll_id, "comment.created", data)
+        except Exception:
+            logger.exception("Failed to publish comment.created")
+
+        return Response(data, status=http.HTTP_201_CREATED)
+

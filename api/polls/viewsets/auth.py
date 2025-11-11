@@ -50,14 +50,28 @@ def _rl(key: str, limit: int, sec: int = 60) -> bool:
 
 class AuthViewSet(GenericViewSet):
     permission_classes = [AllowAny]
-    authentication_classes = []
+    # Don't disable authentication - we need it for session checks
+    # authentication_classes = []
 
     @action(detail=False, methods=["get"], url_path="session")
     def session(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Session check - User: {request.user}, Authenticated: {request.user.is_authenticated if hasattr(request, 'user') else 'N/A'}")
+        logger.info(f"Cookies: {request.COOKIES.keys()}")
+        
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
-            return Response({"authenticated": False}, status=http.HTTP_401_UNAUTHORIZED)
-        return Response({"authenticated": True, "user": {"id": user.id, "email": getattr(user, "email", None), "is_staff": bool(getattr(user, "is_staff", False))}})
+            return Response({"authenticated": False}, status=http.HTTP_200_OK)
+        return Response({
+            "authenticated": True, 
+            "user": {
+                "id": user.id, 
+                "email": getattr(user, "email", None), 
+                "username": getattr(user, "username", None),
+                "is_staff": bool(getattr(user, "is_staff", False))
+            }
+        })
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated], url_path="me")
     def me(self, request):

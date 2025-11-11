@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+  --color-pink: #F080B8;
+  --color-pink-light: #FFE6FE;
+  --color-pink-alpha: #F080B8CB;
+  --color-gray: #707070;
+  
+  --font-family-impact: Impact, "Arial Black", sans-serif;
+  --font-family-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  --animate-slide-up: slide-up 0.3s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Icon styling with mask */
+.icon-button {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  background-color: #FFFFFF; /* white by default */
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  transition: background-color 0.2s ease;
+}
+
+.icon-button:hover {
+  background-color: #F080B8;
+}
+
+.icon-button-gray {
+  background-color: #71717A; /* gray variant */
+}
+
+.icon-button-gray:hover {
+  background-color: #F080B8;
+}
+
+.icon-heart {
+  mask-image: url('/heart.svg');
+}
+
+.icon-comment {
+  mask-image: url('/comment.svg');
+}
+
+.icon-paper-plane {
+  mask-image: url('/paper-plane.svg');
+}
