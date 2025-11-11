@@ -6,7 +6,7 @@ export const Header = () => {
    const { user, isAuthenticated, logout } = useAuth();
 
    return (
-      <header className="bg-black text-white shadow-lg">
+      <header className="sticky top-0 z-50 bg-black text-white shadow-lg border-b border-gray mx-10">
          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
                {/* Left Section - Empty for balance */}

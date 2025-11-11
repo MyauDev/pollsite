@@ -10,14 +10,27 @@
   
   --font-family-impact: Impact, "Arial Black", sans-serif;
   --font-family-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  --animate-slide-up: slide-up 0.3s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* Icon styling with mask */
 .icon-button {
   display: inline-block;
-  width: 1.5rem;
-  height: 1.5rem;
-  background-color: #FFFFFF;
+  width: 1.25rem;
+  height: 1.25rem;
+  background-color: #FFFFFF; /* white by default */
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
@@ -25,6 +38,14 @@
 }
 
 .icon-button:hover {
+  background-color: #F080B8;
+}
+
+.icon-button-gray {
+  background-color: #71717A; /* gray variant */
+}
+
+.icon-button-gray:hover {
   background-color: #F080B8;
 }
 

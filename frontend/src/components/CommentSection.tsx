@@ -10,7 +10,6 @@ interface CommentSectionProps {
 }
 
 export const CommentSection = ({
-   pollId,
    comments,
    onAddComment,
    isAuthenticated,
@@ -78,17 +77,17 @@ export const CommentSection = ({
                      className="border-b border-gray-200 pb-4 last:border-b-0"
                   >
                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
                            <span className="text-sm font-semibold text-indigo-600">
-                              {comment.author.username.charAt(0).toUpperCase()}
+                              {comment.author?.username?.charAt(0).toUpperCase() || 'A'}
                            </span>
                         </div>
                         <div className="flex-1">
                            <div className="flex items-center space-x-2 mb-1">
-                              <span className="font-medium text-gray-900">
-                                 {comment.author.username}
+                              <span className="font-medium text-gray">
+                                 {comment.author?.username || 'Anonymous'}
                               </span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray">
                                  {new Date(comment.created_at).toLocaleDateString()} at{" "}
                                  {new Date(comment.created_at).toLocaleTimeString()}
                               </span>

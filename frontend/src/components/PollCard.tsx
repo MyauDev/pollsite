@@ -2,6 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useCallback, useState, useMemo, useEffect } from "react";
 import type { Poll } from "../types";
 import { useVote } from "../hooks/useVote";
+import { Toast } from "./Toast";
+import { CommentPanel } from "./CommentPanel";
 
 interface PollCardProps {
    poll: Poll;
@@ -16,6 +18,8 @@ export const PollCard = ({ poll }: PollCardProps) => {
    const [votePercents, setVotePercents] = useState<Record<number, number> | null>(null);
    const [totalVotes, setTotalVotes] = useState<number | null>(null);
    const [userVote, setUserVote] = useState<number | null>(poll.user_vote ?? null);
+   const [showToast, setShowToast] = useState(false);
+   const [showComments, setShowComments] = useState(false);
 
    // Update userVote when poll.user_vote changes
    useEffect(() => {
@@ -101,20 +105,12 @@ export const PollCard = ({ poll }: PollCardProps) => {
 
       const url = `${window.location.origin}/polls/${poll.id}`;
       try {
-         if (navigator.share) {
-            await navigator.share({
-               title: poll.title,
-               text: poll.description || poll.title,
-               url
-            });
-         } else {
-            await navigator.clipboard.writeText(url);
-            alert('Link copied to clipboard!');
-         }
+         await navigator.clipboard.writeText(url);
+         setShowToast(true);
       } catch (error) {
-         console.error('Share failed:', error);
+         console.error('Failed to copy link:', error);
       }
-   }, [poll.id, poll.title, poll.description]);
+   }, [poll.id]);
 
    return (
       <div className="block h-full">
@@ -153,7 +149,7 @@ export const PollCard = ({ poll }: PollCardProps) => {
                </div>
                <div className="border-b border-gray pb-3 mb-4">
                   {poll.description && (
-                     <p className="text-sm text-gray mb-4 line-clamp-2">
+                     <p className="text-sm text-white mb-4 line-clamp-2">
                         {poll.description}
                      </p>
                   )}
@@ -163,7 +159,6 @@ export const PollCard = ({ poll }: PollCardProps) => {
                <div className="space-y-4 mb-4">
                   {poll.options
                      .sort((a, b) => a.order - b.order)
-                     .slice(0, 3)
                      .map((option) => {
                         const percentage = livePercents[option.id] || 0;
                         const isSelected = hasVoted &&
@@ -174,42 +169,39 @@ export const PollCard = ({ poll }: PollCardProps) => {
                               key={option.id}
                               onClick={(e) => handleVote(option.id, e)}
                               disabled={hasVoted || isVoting}
-                              className={`relative w-full text-center rounded-4xl p-3 transition-all overflow-hidden ${hasVoted
+                              className={`relative w-full rounded-4xl p-3 transition-all duration-500 overflow-hidden ${hasVoted
                                  ? 'bg-pink-light text-black cursor-not-allowed border border-pink/30'
-                                 : 'bg-pink-light hover:bg-pink hover:text-white cursor-pointer text-black'
+                                 : 'bg-pink-light hover:bg-pink hover:text-white cursor-pointer text-black text-center'
                                  } ${isVoting ? 'opacity-60' : ''}`}
                            >
-                              {/* Pink fill bar based on percentage - only show after voting */}
-                              {hasVoted && (
-                                 <div
-                                    className="absolute inset-0 bg-pink transition-all duration-300"
-                                    style={{ width: `${percentage}%` }}
-                                 />
-                              )}
+                              {/* Pink fill bar - always render but with 0 width when not voted */}
+                              <div
+                                 className="absolute inset-0 bg-pink transition-all duration-700 ease-out"
+                                 style={{ width: hasVoted ? `${percentage}%` : '0%' }}
+                              />
 
-                              <div className="relative flex items-center justify-between my-1 mx-6">
-                                 <span className={`text-sm items-start flex ${isSelected ? ' text-white' : ''}`}>
+                              <div className={`relative flex items-center my-1 mx-6 transition-all duration-500 ${hasVoted ? 'justify-between' : 'justify-center'
+                                 }`}>
+                                 <span className={`text-sm items-center flex transition-all duration-1000 ${isSelected ? 'text-white' : ''
+                                    }`}>
                                     {option.text}
                                  </span>
-                                 {hasVoted && (
-                                    <span className={`text-xs ml-2 ${isSelected ? 'text-white' : 'text-black'}`}>
-                                       {percentage}%
-                                    </span>
-                                 )}
+                                 {/* Percentage - fade in and slide in from right */}
+                                 <span className={`text-xs ml-2 transition-all duration-500 ${hasVoted
+                                    ? `opacity-100 translate-x-0 ${isSelected ? 'text-white' : 'text-black'}`
+                                    : 'opacity-0 translate-x-4'
+                                    }`}>
+                                    {percentage}%
+                                 </span>
                               </div>
                            </button>
                         );
                      })}
-                  {poll.options.length > 3 && (
-                     <p className="text-xs text-gray text-center">
-                        +{poll.options.length - 3} more option{poll.options.length - 3 > 1 ? "s" : ""}
-                     </p>
-                  )}
                </div>
 
                {/* Poll Footer - Icons and Vote Count */}
                <div className="flex items-center justify-between pt-4">
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-4 text">
                      {/* Heart Icon - Navigate to poll */}
                      <button
                         aria-label="Like"
@@ -217,17 +209,19 @@ export const PollCard = ({ poll }: PollCardProps) => {
                            e.stopPropagation();
                            navigate(`/polls/${poll.id}`);
                         }}
+                        className="scale-125 hover:scale-150 transition-transform"
                      >
                         <span className="icon-button icon-heart"></span>
                      </button>
 
-                     {/* Comment Icon - Navigate to poll */}
+                     {/* Comment Icon - Open comment panel */}
                      <button
                         aria-label="Comment"
                         onClick={(e) => {
                            e.stopPropagation();
-                           navigate(`/polls/${poll.id}#comments`);
+                           setShowComments(true);
                         }}
+                        className="scale-125 hover:scale-150 transition-transform"
                      >
                         <span className="icon-button icon-comment"></span>
                      </button>
@@ -236,6 +230,7 @@ export const PollCard = ({ poll }: PollCardProps) => {
                      <button
                         aria-label="Share"
                         onClick={handleShare}
+                        className="scale-125 hover:scale-150 transition-transform"
                      >
                         <span className="icon-button icon-paper-plane"></span>
                      </button>
@@ -247,6 +242,21 @@ export const PollCard = ({ poll }: PollCardProps) => {
                </div>
             </div>
          </div>
+
+         {/* Toast notification */}
+         {showToast && (
+            <Toast
+               message="Link copied!"
+               onClose={() => setShowToast(false)}
+            />
+         )}
+
+         {/* Comment Panel */}
+         <CommentPanel
+            pollId={poll.id}
+            isOpen={showComments}
+            onClose={() => setShowComments(false)}
+         />
       </div>
    );
 };

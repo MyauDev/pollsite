@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: up up-recreate down logs ps build restart-all migrate createsuperuser shell webshell web-restart web-logs web-dev
+.PHONY: up up-recreate down logs ps build restart-api migrate createsuperuser shell webshell web-restart web-logs web-dev
 
 # Main commands
 up:
@@ -26,13 +26,7 @@ ps:
 build:
 	docker compose build --no-cache
 
-restart-all:
-	@echo "🔄 Restarting all containers with code changes..."
-	@echo "📦 Rebuilding web container (Next.js)..."
-	docker compose stop web
-	docker compose rm -f web
-	docker compose build web --no-cache
-	docker compose up -d web
+restart-api:
 	@echo "🔧 Restarting API container (Django)..."
 	docker compose restart api
 	@echo "✅ All containers restarted!"

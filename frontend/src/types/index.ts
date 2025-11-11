@@ -100,22 +100,32 @@ export interface VoteRequest {
 }
 
 // Comment Types
+export interface CommentAuthor {
+  id: number;
+  username: string;
+}
+
 export interface Comment {
   id: number;
   poll: number;
-  author: User;
+  parent?: number | null;
   content: string;
+  status: 'visible' | 'hidden';
+  author?: CommentAuthor | null;
   created_at: string;
-  updated_at: string;
-  parent?: number;
-  replies?: Comment[];
-  is_flagged?: boolean;
+  replies_count: number;
 }
 
 export interface CreateCommentRequest {
-  poll: number;
   content: string;
-  parent?: number;
+  parent?: number | null;
+}
+
+export interface CommentListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Comment[];
 }
 
 // Profile Types

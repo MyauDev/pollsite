@@ -97,18 +97,16 @@ export const pollAPI = {
 // ============ Comment Endpoints ============
 export const commentAPI = {
   // List comments for a poll
-  list: (pollId: number, params?: { page?: number }) =>
-    api.get<PaginatedResponse<Comment>>(`/polls/${pollId}/comments/`, { params }),
+  list: (pollId: number, params?: { page?: number; parent?: number }) =>
+    api.get<import("../types").CommentListResponse>(`/polls/${pollId}/comments/`, { params }),
 
-  // Create comment
-  create: (data: CreateCommentRequest) => api.post<Comment>("/comments/", data),
+  // Create comment for a poll
+  create: (pollId: number, data: CreateCommentRequest) => 
+    api.post<Comment>(`/polls/${pollId}/comments/`, data),
 
-  // Update comment
-  update: (id: number, content: string) =>
-    api.patch<Comment>(`/comments/${id}/`, { content }),
-
-  // Delete comment
-  delete: (id: number) => api.delete(`/comments/${id}/`),
+  // Moderate comment (hide/unhide)
+  moderate: (id: number, action: 'hide' | 'unhide') =>
+    api.post(`/comments/${id}/moderate/`, { action }),
 };
 
 // ============ Profile Endpoints ============

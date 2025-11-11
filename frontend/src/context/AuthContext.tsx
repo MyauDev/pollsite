@@ -30,32 +30,31 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sessionChecked, setSessionChecked] = useState(false);
 
   const refreshSession = async () => {
-    // Only check once to avoid rate limiting
-    if (sessionChecked) return;
-
     try {
+      setLoading(true);
+      console.log('Checking session...');
       const response = await authAPI.session();
+      console.log('Session response:', response.data);
       if (response.data.authenticated && response.data.user) {
+        console.log('User authenticated:', response.data.user);
         setUser(response.data.user);
       } else {
+        console.log('User not authenticated');
         setUser(null);
       }
     } catch (error) {
       // Silently fail on session check - user is just not logged in
-      console.log("Not authenticated or session check failed");
+      console.log("Session check failed:", error);
       setUser(null);
     } finally {
       setLoading(false);
-      setSessionChecked(true);
     }
   };
 
   useEffect(() => {
     refreshSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (data: LoginRequest) => {
