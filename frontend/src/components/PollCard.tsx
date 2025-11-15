@@ -4,14 +4,17 @@ import type { Poll } from "../types";
 import { useVote } from "../hooks/useVote";
 import { Toast } from "./Toast";
 import { CommentPanel } from "./CommentPanel";
+import { useAuth } from "../context/AuthContext";
 
 interface PollCardProps {
    poll: Poll;
+   sharedBy?: string | null;
 }
 
-export const PollCard = ({ poll }: PollCardProps) => {
+export const PollCard = ({ poll, sharedBy }: PollCardProps) => {
    const navigate = useNavigate();
    const vote = useVote();
+   const { user } = useAuth();
 
    const [optimisticVote, setOptimisticVote] = useState<number | null>(null);
    const [isVoting, setIsVoting] = useState(false);
@@ -20,6 +23,7 @@ export const PollCard = ({ poll }: PollCardProps) => {
    const [userVote, setUserVote] = useState<number | null>(poll.user_vote ?? null);
    const [showToast, setShowToast] = useState(false);
    const [showComments, setShowComments] = useState(false);
+   const [dismissedSharedBanner, setDismissedSharedBanner] = useState(false);
 
    // Update userVote when poll.user_vote changes
    useEffect(() => {
@@ -103,14 +107,18 @@ export const PollCard = ({ poll }: PollCardProps) => {
       e.preventDefault();
       e.stopPropagation();
 
-      const url = `${window.location.origin}/polls/${poll.id}`;
+      // Encode current user's username in base64
+      const username = user?.username || 'anonymous';
+      const encodedUser = btoa(username);
+      const url = `${window.location.origin}/?s=${encodedUser}&poll=${poll.id}`;
+
       try {
          await navigator.clipboard.writeText(url);
          setShowToast(true);
       } catch (error) {
          console.error('Failed to copy link:', error);
       }
-   }, [poll.id]);
+   }, [poll.id, user]);
 
    return (
       <div className="block h-full">
@@ -133,10 +141,31 @@ export const PollCard = ({ poll }: PollCardProps) => {
 
          {/* Poll Card */}
          <div
-            className="block bg-black rounded-[3rem] shadow-md shadow-pink hover:shadow-lg transition-shadow duration-300 overflow-hidden border-2 border-pink cursor-pointer"
-            onClick={() => navigate(`/polls/${poll.id}`)}
+            className="block bg-black rounded-[3rem] shadow-md shadow-pink hover:shadow-lg transition-shadow duration-300 overflow-hidden border-2 border-pink"
          >
-            <div className="p-10 py-12">
+            {/* Shared by indicator - inside the card */}
+            
+
+            <div className="px-10 py-6">
+               {sharedBy && !dismissedSharedBanner && (
+               <div className=" bg-black mb-4 border-2 border-pink rounded-3xl flex items-center justify-between">
+                  <div className="flex items-center space-x-3 px-3">
+                     <p className="text-xs font-medium text-white">
+                        <span className="font-semibold">{sharedBy}</span> shared this poll with you
+                     </p>
+                  </div>
+                  <button
+                     onClick={(e) => {
+                        e.stopPropagation();
+                        setDismissedSharedBanner(true);
+                     }}
+                     className="text-white hover:text-pink transition-colors ml-2 px-2"
+                     aria-label="Dismiss"
+                  >
+                     ✕
+                  </button>
+               </div>
+            )}
                <div className="flex items-start justify-between mb-3">
                   <h3 className="text-xl font-bold text-white flex-1 mr-4">
                      {poll.title}
