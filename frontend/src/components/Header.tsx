@@ -15,7 +15,7 @@ export const Header = () => {
                {/* Center Section - Site Name */}
                <div className="flex-1 flex justify-center">
                   <Link to="/" className="text-3xl font-family-impact font-bold tracking-tight hover:text-pink transition-colors uppercase">
-                     pollsite
+                     Senya huesos
                   </Link>
                </div>
 
