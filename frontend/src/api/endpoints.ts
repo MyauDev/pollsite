@@ -12,6 +12,7 @@ import type {
   VoteRequest,
   Comment,
   CreateCommentRequest,
+  UserComment,
   Profile,
   Topic,
   PollAnalytics,
@@ -112,25 +113,40 @@ export const commentAPI = {
 // ============ Profile Endpoints ============
 export const profileAPI = {
   // Get profile by username
-  get: (username: string) => api.get<Profile>(`/profiles/${username}/`),
+  get: (username: string) => api.get<Profile>(`/profile/${username}/`),
 
-  // Update own profile
-  update: (data: { bio?: string; avatar?: string }) =>
-    api.patch<Profile>("/profiles/me/", data),
+  // Get current user's profile
+  me: () => api.get<Profile>("/profile/me/"),
+
+  // Update own profile (JSON only - for simple fields)
+  update: (data: { display_name?: string; bio?: string }) =>
+    api.patch<Profile>("/profile/me/", data),
+
+  // Update own profile with file (FormData - for avatar uploads)
+  updateWithFormData: (formData: FormData) =>
+    api.patch<Profile>("/profile/me/", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }),
 
   // Follow user
-  follow: (username: string) => api.post<{ ok: boolean }>(`/profiles/${username}/follow/`),
+  follow: (username: string) => api.post<{ ok: boolean }>(`/profile/${username}/follow/`),
 
   // Unfollow user
-  unfollow: (username: string) => api.post<{ ok: boolean }>(`/profiles/${username}/unfollow/`),
+  unfollow: (username: string) => api.post<{ ok: boolean }>(`/profile/${username}/unfollow/`),
+
+  // Get user's comments (replies)
+  comments: (username: string) =>
+    api.get<{ results: UserComment[]; count: number }>(`/profile/${username}/comments/`),
 
   // Get followers
   followers: (username: string, params?: { page?: number }) =>
-    api.get<PaginatedResponse<Profile>>(`/profiles/${username}/followers/`, { params }),
+    api.get<PaginatedResponse<Profile>>(`/profile/${username}/followers/`, { params }),
 
   // Get following
   following: (username: string, params?: { page?: number }) =>
-    api.get<PaginatedResponse<Profile>>(`/profiles/${username}/following/`, { params }),
+    api.get<PaginatedResponse<Profile>>(`/profile/${username}/following/`, { params }),
 };
 
 // ============ Topic Endpoints ============

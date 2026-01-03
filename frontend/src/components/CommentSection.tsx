@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Comment } from "../types";
 import { Button } from "./Button";
 
@@ -14,6 +15,7 @@ export const CommentSection = ({
    onAddComment,
    isAuthenticated,
 }: CommentSectionProps) => {
+   const navigate = useNavigate();
    const [newComment, setNewComment] = useState("");
    const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -77,16 +79,32 @@ export const CommentSection = ({
                      className="border-b border-gray-200 pb-4 last:border-b-0"
                   >
                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+                        <button
+                           onClick={(e) => {
+                              e.stopPropagation();
+                              if (comment.author?.username) {
+                                 navigate(`/user/${comment.author.username}`);
+                              }
+                           }}
+                           className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center shrink-0 hover:scale-110 transition-transform"
+                        >
                            <span className="text-sm font-semibold text-indigo-600">
                               {comment.author?.username?.charAt(0).toUpperCase() || 'A'}
                            </span>
-                        </div>
+                        </button>
                         <div className="flex-1">
                            <div className="flex items-center space-x-2 mb-1">
-                              <span className="font-medium text-gray">
+                              <button
+                                 onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (comment.author?.username) {
+                                       navigate(`/user/${comment.author.username}`);
+                                    }
+                                 }}
+                                 className="font-medium text-gray hover:text-indigo-600 transition-colors"
+                              >
                                  {comment.author?.username || 'Anonymous'}
-                              </span>
+                              </button>
                               <span className="text-xs text-gray">
                                  {new Date(comment.created_at).toLocaleDateString()} at{" "}
                                  {new Date(comment.created_at).toLocaleTimeString()}

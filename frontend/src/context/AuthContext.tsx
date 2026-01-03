@@ -68,7 +68,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = async () => {
-    await authAPI.logout();
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      // Ignore logout errors (e.g., 401 if already logged out)
+      console.log('Logout completed (ignoring errors)');
+    }
     setUser(null);
   };
 

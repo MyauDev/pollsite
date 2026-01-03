@@ -12,6 +12,7 @@ from polls.viewsets.moderation import ReportViewSet, ModerationViewSet  # из �
 
 from polls.views_stream import PollStreamView
 from polls.views_social import GoogleCookieLogin
+from polls.views_profile import CurrentProfileView
 
 router = SimpleRouter()
 router.register(r"polls", PollViewSet, basename="poll")
@@ -25,7 +26,8 @@ router.register(r"moderation/reports", ReportViewSet, basename="moderation-repor
 router.register(r"moderation", ModerationViewSet, basename="moderation")
 
 urlpatterns = [
-    path("", include(router.urls)),
+    path("profile/me/", CurrentProfileView.as_view(), name="profile-me"),
     path("polls/<int:pk>/stream", PollStreamView.as_view(), name="poll-stream"),
     path("auth/social/google", GoogleCookieLogin.as_view(), name="auth-social-google"),
+    path("", include(router.urls)),
 ]

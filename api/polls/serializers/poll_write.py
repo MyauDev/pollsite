@@ -115,7 +115,7 @@ class PollWriteSerializer(serializers.ModelSerializer):
         options = validated_data.pop("options")
         topic_ids = validated_data.pop("topic_ids", [])
 
-        poll = Poll.objects.create(author=self.context["request"].user, **validated_data)  # type: ignore
+        poll = Poll.objects.create(**validated_data)  # type: ignore
 
         rows = [
             PollOption(poll=poll, text=opt["text"].strip(), order=idx)

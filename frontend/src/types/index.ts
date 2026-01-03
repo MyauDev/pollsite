@@ -128,12 +128,23 @@ export interface CommentListResponse {
   results: Comment[];
 }
 
+// User's comment with poll context (for profile replies tab)
+export interface UserComment extends Comment {
+  poll_title?: string;
+  poll_id: number;
+}
+
 // Profile Types
 export interface Profile {
   id: number;
   user: User;
+  display_name?: string;
   bio?: string;
   avatar?: string;
+  avatar_url?: string;
+  age?: number;
+  gender?: "m" | "f" | "o";
+  is_private?: boolean;
   created_polls_count: number;
   votes_count: number;
   followers_count: number;

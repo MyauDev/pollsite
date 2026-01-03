@@ -42,6 +42,7 @@ class PollBaseSerializer(serializers.ModelSerializer):
     topics = serializers.SerializerMethodField()
     results_available = serializers.SerializerMethodField()
     user_vote = serializers.SerializerMethodField()
+    author = serializers.SerializerMethodField()
 
     class Meta:
         model = Poll
@@ -61,6 +62,7 @@ class PollBaseSerializer(serializers.ModelSerializer):
             "topics",
             "results_available",
             "user_vote",
+            "author",
         )
 
     def get_topics(self, obj: Poll):
@@ -113,6 +115,18 @@ class PollBaseSerializer(serializers.ModelSerializer):
         device_hash = sha256_hex(device_id)
         vote = Vote.objects.filter(poll=obj, device_hash=device_hash).only("option_id").first()
         return vote.option_id if vote else None
+
+    def get_author(self, obj: Poll):
+        """
+        Return author information.
+        """
+        if obj.author:
+            return {
+                "username": obj.author.username,
+                "first_name": obj.author.first_name,
+                "last_name": obj.author.last_name,
+            }
+        return None
 
 
 class PollDetailSerializer(PollBaseSerializer):

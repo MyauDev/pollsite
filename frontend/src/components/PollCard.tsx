@@ -9,9 +9,10 @@ import { useAuth } from "../context/AuthContext";
 interface PollCardProps {
    poll: Poll;
    sharedBy?: string | null;
+   initialShowComments?: boolean;
 }
 
-export const PollCard = ({ poll, sharedBy }: PollCardProps) => {
+export const PollCard = ({ poll, sharedBy, initialShowComments = false }: PollCardProps) => {
    const navigate = useNavigate();
    const vote = useVote();
    const { user } = useAuth();
@@ -22,7 +23,7 @@ export const PollCard = ({ poll, sharedBy }: PollCardProps) => {
    const [totalVotes, setTotalVotes] = useState<number | null>(null);
    const [userVote, setUserVote] = useState<number | null>(poll.user_vote ?? null);
    const [showToast, setShowToast] = useState(false);
-   const [showComments, setShowComments] = useState(false);
+   const [showComments, setShowComments] = useState(initialShowComments);
    const [dismissedSharedBanner, setDismissedSharedBanner] = useState(false);
 
    // Update userVote when poll.user_vote changes
@@ -124,15 +125,31 @@ export const PollCard = ({ poll, sharedBy }: PollCardProps) => {
       <div className="block h-full">
          {/* Author Section - Above the card */}
          <div className="flex items-center space-x-2 mb-3">
-            <div className="w-8 h-8 bg-pink rounded-full flex items-center justify-center">
+            <button
+               onClick={(e) => {
+                  e.stopPropagation();
+                  if (poll.author?.username) {
+                     navigate(`/user/${poll.author.username}`);
+                  }
+               }}
+               className="w-8 h-8 bg-pink rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+            >
                <span className="text-sm font-semibold text-white">
                   {poll.author?.username?.charAt(0).toUpperCase() || 'U'}
                </span>
-            </div>
+            </button>
             <div>
-               <p className="text-sm font-medium text-white">
+               <button
+                  onClick={(e) => {
+                     e.stopPropagation();
+                     if (poll.author?.username) {
+                        navigate(`/user/${poll.author.username}`);
+                     }
+                  }}
+                  className="text-sm font-medium text-white hover:text-pink transition-colors"
+               >
                   {poll.author?.username || 'Unknown'}
-               </p>
+               </button>
                <p className="text-xs text-gray">
                   {new Date(poll.created_at).toLocaleDateString()}
                </p>
@@ -144,28 +161,28 @@ export const PollCard = ({ poll, sharedBy }: PollCardProps) => {
             className="block bg-black rounded-[3rem] shadow-md shadow-pink hover:shadow-lg transition-shadow duration-300 overflow-hidden border-2 border-pink"
          >
             {/* Shared by indicator - inside the card */}
-            
+
 
             <div className="px-10 py-6">
                {sharedBy && !dismissedSharedBanner && (
-               <div className=" bg-black mb-4 border-2 border-pink rounded-3xl flex items-center justify-between">
-                  <div className="flex items-center space-x-3 px-3">
-                     <p className="text-xs font-medium text-white">
-                        <span className="font-semibold">{sharedBy}</span> shared this poll with you
-                     </p>
+                  <div className=" bg-black mb-4 border-2 border-pink rounded-3xl flex items-center justify-between">
+                     <div className="flex items-center space-x-3 px-3">
+                        <p className="text-xs font-medium text-white">
+                           <span className="font-semibold">{sharedBy}</span> shared this poll with you
+                        </p>
+                     </div>
+                     <button
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           setDismissedSharedBanner(true);
+                        }}
+                        className="text-white hover:text-pink transition-colors ml-2 px-2"
+                        aria-label="Dismiss"
+                     >
+                        ✕
+                     </button>
                   </div>
-                  <button
-                     onClick={(e) => {
-                        e.stopPropagation();
-                        setDismissedSharedBanner(true);
-                     }}
-                     className="text-white hover:text-pink transition-colors ml-2 px-2"
-                     aria-label="Dismiss"
-                  >
-                     ✕
-                  </button>
-               </div>
-            )}
+               )}
                <div className="flex items-start justify-between mb-3">
                   <h3 className="text-xl font-bold text-white flex-1 mr-4">
                      {poll.title}

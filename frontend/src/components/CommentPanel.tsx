@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { commentAPI } from '../api/endpoints';
 import type { Comment } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +11,7 @@ interface CommentPanelProps {
 }
 
 export const CommentPanel = ({ pollId, isOpen, onClose }: CommentPanelProps) => {
+   const navigate = useNavigate();
    const { user } = useAuth();
    const [comments, setComments] = useState<Comment[]>([]);
    const [loading, setLoading] = useState(false);
@@ -183,18 +185,34 @@ export const CommentPanel = ({ pollId, isOpen, onClose }: CommentPanelProps) => 
                         <div key={comment.id} className="space-y-2">
                            <div className="flex items-start space-x-3">
                               {/* Avatar on the left */}
-                              <div className="w-8 h-8 bg-pink rounded-full flex items-center justify-center shrink-0">
+                              <button
+                                 onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (comment.author?.username) {
+                                       navigate(`/user/${comment.author.username}`);
+                                    }
+                                 }}
+                                 className="w-8 h-8 bg-pink rounded-full flex items-center justify-center shrink-0 hover:scale-110 transition-transform"
+                              >
                                  <span className="text-sm font-semibold text-white">
                                     {comment.author?.username?.charAt(0).toUpperCase() || 'A'}
                                  </span>
-                              </div>
+                              </button>
                               {/* Username/time above comment box */}
                               <div className="flex-1 space-y-1">
                                  <div className="flex items-center justify-between text-sm">
                                     <div className="flex text-xs items-center space-x-2">
-                                       <span className=" text-gray">
+                                       <button
+                                          onClick={(e) => {
+                                             e.stopPropagation();
+                                             if (comment.author?.username) {
+                                                navigate(`/user/${comment.author.username}`);
+                                             }
+                                          }}
+                                          className="text-gray hover:text-pink transition-colors"
+                                       >
                                           {comment.author?.username || 'Anonymous'}
-                                       </span>
+                                       </button>
 
                                        <span className="text-xs text-gray">{formatDate(comment.created_at)}</span>
                                     </div>
@@ -256,14 +274,32 @@ export const CommentPanel = ({ pollId, isOpen, onClose }: CommentPanelProps) => 
                               <div className="ml-11 space-y-2 pl-4 border-l-2 border-pink/30">
                                  {replies[comment.id].map((reply) => (
                                     <div key={reply.id} className="flex items-start space-x-2">
-                                       <div className="w-6 h-6 bg-pink rounded-full flex items-center justify-center shrink-0">
+                                       <button
+                                          onClick={(e) => {
+                                             e.stopPropagation();
+                                             if (reply.author?.username) {
+                                                navigate(`/user/${reply.author.username}`);
+                                             }
+                                          }}
+                                          className="w-6 h-6 bg-pink rounded-full flex items-center justify-center shrink-0 hover:scale-110 transition-transform"
+                                       >
                                           <span className="text-xs font-semibold text-white">
                                              {reply.author?.username?.charAt(0).toUpperCase() || 'A'}
                                           </span>
-                                       </div>
+                                       </button>
                                        <div className="flex-1 space-y-1">
                                           <div className="flex text-xs items-center space-x-2">
-                                             <span className="text-gray">{reply.author?.username || 'Anonymous'}</span>
+                                             <button
+                                                onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   if (reply.author?.username) {
+                                                      navigate(`/user/${reply.author.username}`);
+                                                   }
+                                                }}
+                                                className="text-gray hover:text-pink transition-colors"
+                                             >
+                                                {reply.author?.username || 'Anonymous'}
+                                             </button>
                                              <span className="text-gray">{formatDate(reply.created_at)}</span>
                                           </div>
                                           <div className="bg-black text-xs rounded-md px-2 py-1 border border-pink/50">

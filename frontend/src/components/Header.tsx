@@ -1,9 +1,34 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./Button";
+import { useState, useRef, useEffect } from "react";
 
 export const Header = () => {
    const { user, isAuthenticated, logout } = useAuth();
+   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+   const dropdownRef = useRef<HTMLDivElement>(null);
+
+   // Close dropdown when clicking outside
+   useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+         if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            setIsDropdownOpen(false);
+         }
+      };
+
+      if (isDropdownOpen) {
+         document.addEventListener("mousedown", handleClickOutside);
+      }
+
+      return () => {
+         document.removeEventListener("mousedown", handleClickOutside);
+      };
+   }, [isDropdownOpen]);
+
+   const handleLogout = async () => {
+      await logout();
+      setIsDropdownOpen(false);
+   };
 
    return (
       <header className="sticky top-0 z-50 bg-black text-white shadow-lg border-b border-gray mx-10">
@@ -22,7 +47,7 @@ export const Header = () => {
                {/* Right Section - Create Button + User Info */}
                <div className="flex-1 flex items-center justify-end space-x-6">
                   {isAuthenticated && (
-                     <Link to="/polls/create">
+                     <Link to="/create">
                         <Button variant="primary" size="sm">
                            Create
                         </Button>
@@ -30,8 +55,11 @@ export const Header = () => {
                   )}
 
                   {isAuthenticated ? (
-                     <div className="flex items-center space-x-3">
-                        <div className="flex items-center space-x-2">
+                     <div className="flex items-center space-x-3 relative" ref={dropdownRef}>
+                        <button
+                           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                           className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+                        >
                            <div className="w-8 h-8 bg-pink rounded-full flex items-center justify-center">
                               <span className="text-sm font-semibold text-white">
                                  {user?.username?.charAt(0).toUpperCase()}
@@ -40,8 +68,26 @@ export const Header = () => {
                            <span className="text-sm font-medium hidden sm:block">
                               {user?.username}
                            </span>
-                        </div>
+                        </button>
 
+                        {/* Dropdown Menu */}
+                        {isDropdownOpen && (
+                           <div className="absolute top-full right-0 mt-2 w-48 bg-black border-2 border-pink rounded-2xl shadow-lg py-2 z-50">
+                              <Link
+                                 to={`/user/${user?.username}`}
+                                 onClick={() => setIsDropdownOpen(false)}
+                                 className="block px-4 py-2 text-white hover:bg-pink hover:text-black transition-colors"
+                              >
+                                 Account
+                              </Link>
+                              <button
+                                 onClick={handleLogout}
+                                 className="w-full text-left px-4 py-2 text-white hover:bg-pink hover:text-black transition-colors"
+                              >
+                                 Logout
+                              </button>
+                           </div>
+                        )}
                      </div>
                   ) : (
                      <div className="flex items-center space-x-2">

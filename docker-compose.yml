@@ -34,23 +34,20 @@ services:
     env_file: .env
     environment:
       - FRONTEND_ORIGIN=http://localhost:3000
+      - PYTHONUNBUFFERED=1
     working_dir: /app
-    volumes:
-      - ./api:/app
+    # Volume mount disabled due to macOS Docker file system deadlock (OSError Errno 35)
+    # For live code reload, rebuild the container with: docker compose up -d --build
+    # volumes:
+    #   - ./api:/app:cached
     ports:
       - "8000:8000"
     command:
-      - sh
-      - -lc
-      - >
-        cd /app &&
-        python manage.py migrate --noinput &&
-        exec gunicorn
-        -k gthread --threads 4 -w 2
-        -b 0.0.0.0:8000
-        --log-level debug --access-logfile - --error-logfile - --capture-output
-        -c /dev/null
-        core.wsgi:application
+      - bash
+      - -c
+      - |
+        python manage.py migrate --noinput
+        python manage.py runserver 0.0.0.0:8000
     depends_on:
       db:
         condition: service_healthy
@@ -101,9 +98,12 @@ services:
     build:
       context: ./api
     container_name: pollsite_dev-worker-1
+    environment:
+      - PYTHONUNBUFFERED=1
     working_dir: /app
-    volumes:
-      - ./api:/app
+    # Volume mount disabled due to macOS Docker file system deadlock (OSError Errno 35)
+    # volumes:
+    #   - ./api:/app
     command: celery -A core.celery_app worker -l info
     env_file: .env
     depends_on:
@@ -118,9 +118,12 @@ services:
     build:
       context: ./api
     container_name: pollsite_dev-beat-1
+    environment:
+      - PYTHONUNBUFFERED=1
     working_dir: /app
-    volumes:
-      - ./api:/app
+    # Volume mount disabled due to macOS Docker file system deadlock (OSError Errno 35)
+    # volumes:
+    #   - ./api:/app
     command: celery -A core.celery_app beat -l info
     env_file: .env
     depends_on:
