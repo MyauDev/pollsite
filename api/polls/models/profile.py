@@ -53,6 +53,13 @@ class UserProfile(models.Model):
         default=False,
         help_text="If true, only approved followers can see this profile's content",
     )
+    suggest_to_others = models.BooleanField(
+        default=True,
+        help_text="If true, this account may appear in suggestions to other users",
+    )
+    phone_number = models.CharField(max_length=20, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    account_region = models.CharField(max_length=10, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

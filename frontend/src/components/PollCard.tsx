@@ -5,14 +5,19 @@ import { useVote } from "../hooks/useVote";
 import { Toast } from "./Toast";
 import { CommentPanel } from "./CommentPanel";
 import { useAuth } from "../context/AuthContext";
+import { pollAPI } from "../api/endpoints";
 
 interface PollCardProps {
    poll: Poll;
    sharedBy?: string | null;
    initialShowComments?: boolean;
+   hideAuthor?: boolean;
+   isOwnPoll?: boolean;
+   onDeleted?: (pollId: number) => void;
+   showExpiry?: boolean;
 }
 
-export const PollCard = ({ poll, sharedBy, initialShowComments = false }: PollCardProps) => {
+export const PollCard = ({ poll, sharedBy, initialShowComments = false, hideAuthor = false, isOwnPoll = false, onDeleted, showExpiry = false }: PollCardProps) => {
    const navigate = useNavigate();
    const vote = useVote();
    const { user } = useAuth();
@@ -104,6 +109,18 @@ export const PollCard = ({ poll, sharedBy, initialShowComments = false }: PollCa
       }
    }, [hasVoted, isVoting, poll.id, vote]);
 
+   const handleDelete = useCallback(async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!window.confirm("Delete this poll?")) return;
+      try {
+         await pollAPI.delete(poll.id);
+         onDeleted?.(poll.id);
+      } catch (error) {
+         console.error("Delete failed:", error);
+      }
+   }, [poll.id, onDeleted]);
+
    const handleShare = useCallback(async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -124,21 +141,8 @@ export const PollCard = ({ poll, sharedBy, initialShowComments = false }: PollCa
    return (
       <div className="block h-full">
          {/* Author Section - Above the card */}
-         <div className="flex items-center space-x-2 mb-3">
-            <button
-               onClick={(e) => {
-                  e.stopPropagation();
-                  if (poll.author?.username) {
-                     navigate(`/user/${poll.author.username}`);
-                  }
-               }}
-               className="w-8 h-8 bg-pink rounded-full flex items-center justify-center hover:scale-110 transition-transform"
-            >
-               <span className="text-sm font-semibold text-white">
-                  {poll.author?.username?.charAt(0).toUpperCase() || 'U'}
-               </span>
-            </button>
-            <div>
+         {!hideAuthor && (
+            <div className="flex items-center space-x-2 mb-3">
                <button
                   onClick={(e) => {
                      e.stopPropagation();
@@ -146,15 +150,30 @@ export const PollCard = ({ poll, sharedBy, initialShowComments = false }: PollCa
                         navigate(`/user/${poll.author.username}`);
                      }
                   }}
-                  className="text-sm font-medium text-white hover:text-pink transition-colors"
+                  className="w-8 h-8 bg-pink rounded-full flex items-center justify-center hover:scale-110 transition-transform"
                >
-                  {poll.author?.username || 'Unknown'}
+                  <span className="text-sm font-semibold text-white">
+                     {poll.author?.username?.charAt(0).toUpperCase() || 'U'}
+                  </span>
                </button>
-               <p className="text-xs text-gray">
-                  {new Date(poll.created_at).toLocaleDateString()}
-               </p>
+               <div>
+                  <button
+                     onClick={(e) => {
+                        e.stopPropagation();
+                        if (poll.author?.username) {
+                           navigate(`/user/${poll.author.username}`);
+                        }
+                     }}
+                     className="text-sm font-medium text-white hover:text-pink transition-colors"
+                  >
+                     {poll.author?.username || 'Unknown'}
+                  </button>
+                  <p className="text-xs text-gray">
+                     {new Date(poll.created_at).toLocaleDateString()}
+                  </p>
+               </div>
             </div>
-         </div>
+         )}
 
          {/* Poll Card */}
          <div
@@ -282,9 +301,33 @@ export const PollCard = ({ poll, sharedBy, initialShowComments = false }: PollCa
                      </button>
                   </div>
 
-                  <div className="flex items-center text-sm text-gray">
-                     <span>{displayedTotal} vote{displayedTotal !== 1 ? 's' : ''}</span>
-                  </div>
+                  {isOwnPoll ? (
+                     <div className="flex items-center gap-4 text-sm">
+                        <button
+                           onClick={(e) => { e.stopPropagation(); navigate(`/polls/${poll.id}/edit`); }}
+                           className="text-gray hover:text-pink transition-colors underline"
+                        >
+                           Edit Poll
+                        </button>
+                        <button
+                           onClick={handleDelete}
+                           className="text-gray hover:text-pink transition-colors underline"
+                        >
+                           Delete Poll
+                        </button>
+                     </div>
+                  ) : showExpiry && poll.closes_at ? (
+                     <div className="flex items-center gap-1.5 text-xs text-gray">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>{new Date(poll.closes_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+                     </div>
+                  ) : (
+                     <div className="flex items-center text-sm text-gray">
+                        <span>{displayedTotal} vote{displayedTotal !== 1 ? 's' : ''}</span>
+                     </div>
+                  )}
                </div>
             </div>
          </div>

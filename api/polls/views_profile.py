@@ -8,18 +8,23 @@ from polls.serializers import ProfileSerializer
 
 class CurrentProfileView(APIView):
     """
-    GET or PATCH current user's profile
+    GET or PATCH current user's profile (/profile/me/)
     """
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
-    
+
     def get(self, request):
-        """Get current user's profile"""
         serializer = ProfileSerializer(request.user.profile, context={'request': request})
-        return Response(serializer.data)
-    
+        data = serializer.data
+        # Expose email from the User model
+        data['user'] = {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+        }
+        return Response(data)
+
     def patch(self, request):
-        """Update current user's profile"""
         profile = request.user.profile
         serializer = ProfileSerializer(
             instance=profile,
@@ -29,4 +34,11 @@ class CurrentProfileView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+
+        data = serializer.data
+        data['user'] = {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+        }
+        return Response(data)

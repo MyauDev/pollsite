@@ -145,6 +145,10 @@ export interface Profile {
   age?: number;
   gender?: "m" | "f" | "o";
   is_private?: boolean;
+  suggest_to_others?: boolean;
+  phone_number?: string;
+  date_of_birth?: string;
+  account_region?: string;
   created_polls_count: number;
   votes_count: number;
   followers_count: number;

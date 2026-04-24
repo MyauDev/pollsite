@@ -147,6 +147,10 @@ export const profileAPI = {
   // Get following
   following: (username: string, params?: { page?: number }) =>
     api.get<PaginatedResponse<Profile>>(`/profile/${username}/following/`, { params }),
+
+  // Get suggested users to follow
+  suggestions: () =>
+    api.get<Profile[]>("/profile/suggestions/"),
 };
 
 // ============ Topic Endpoints ============
